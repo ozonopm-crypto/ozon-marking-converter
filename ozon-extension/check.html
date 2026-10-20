@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Проверка преобразователя</title><link rel="stylesheet" href="popup.css"></head>
+<body class="check-page"><main>
+<h1>Проверка преобразователя</h1>
+<p><strong>Выберите английскую раскладку (ENG), выключите Caps Lock.</strong></p>
+<p>Нажмите на поле ниже и отсканируйте реальную маркировку с упаковки. В результате должны появиться два обозначения разделителей <code>\u001d</code>. Это проверяет ввод на компьютере; принятие кода нужно отдельно проверить в Ozon.</p>
+<label class="field-label" for="marking">Код маркировки</label>
+<textarea id="marking" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+<button id="simulate" type="button">Проверить на тестовом скане</button>
+<button id="clear-test" class="secondary" type="button">Стереть код</button>
+<p id="test-status" role="status" aria-live="polite">Ожидаю код маркировки товара.</p>
+<p class="small">Тестовый скан — искусственный пример для проверки работы расширения, он не относится к реальному товару и не предназначен для отправки в Ozon.</p>
+<p class="small">Поддерживается формат: серийный номер 13 знаков, ключ 4, проверочная часть 44. Если этот тест проходит, но поле в Ozon не распознаётся, используйте кнопку «Выбрать поле маркировки» в окне расширения.</p>
+<footer>Автор: <strong>Полухин Евгений Игоревич</strong><br>Телефон: <a href="tel:+74994111212">+7 (499) 411-12-12</a><br>Telegram: <a href="https://t.me/eipolukhin" target="_blank" rel="noopener noreferrer">@eipolukhin</a></footer>
+</main><script src="normalizer.js"></script><script src="content.js"></script><script src="check.js"></script></body></html>

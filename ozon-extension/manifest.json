@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Преобразователь кода для Ozon",
+  "version": "1.2.1",
+  "description": "Подготавливает разделители кода маркировки при сканировании в Ozon Seller.",
+  "author": "Полухин Евгений Игоревич",
+  "permissions": ["storage", "scripting", "alarms"],
+  "optional_host_permissions": ["https://*/*"],
+  "host_permissions": ["https://seller.ozon.ru/*", "https://raw.githubusercontent.com/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Преобразователь кода для Ozon",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{
+    "matches": ["https://seller.ozon.ru/*"],
+    "js": ["normalizer.js", "content.js"],
+    "run_at": "document_start",
+    "all_frames": true
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https:; base-uri 'none'"
+  }
+}

@@ -2,9 +2,13 @@
 
 Browser extension for Ozon Seller that prepares marking code separators when scanning Chestny ZNAK Data Matrix codes. Includes update notifications and a built-in test page.
 
+## Версия 1.2.2
+
+Удалены контактные данные из расширения, добавлен значок красного сканера.
+
 ## Скачать
 
-[Скачать версию 1.2.1](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/ozon-extension-1.2.1.zip)
+[Скачать версию 1.2.2](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/ozon-extension-1.2.2.zip)
 
 **Перед сканированием: английская раскладка (ENG), Caps Lock выключен.**
 
@@ -20,7 +24,7 @@ Browser extension for Ozon Seller that prepares marking code separators when sca
 
 ## Обновления
 
-В 1.2.1 адрес обновлений уже настроен. Проверка выполняется при запуске и примерно раз в 6 часов работающего браузера. Есть ручная кнопка «Проверить обновления». При новой версии появляются отметка **NEW** и ссылка скачивания.
+В 1.2.2 адрес обновлений уже настроен. Проверка выполняется при запуске и примерно раз в 6 часов работающего браузера. Есть ручная кнопка «Проверить обновления». При новой версии появляются отметка **NEW** и ссылка скачивания.
 
 **Установка обновления выполняется вручную:** замените файлы в прежней папке, перезагрузите расширение на странице управления расширениями и вкладки Ozon. Удалять установку перед обновлением не нужно.
 

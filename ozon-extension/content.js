@@ -5,7 +5,7 @@
   const api = globalThis.EipOzonMarking;
   if (!api || globalThis.__eipOzonMarkingAttached) return;
   globalThis.__eipOzonMarkingAttached = true;
-  const version = typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest().version : "1.2.1";
+  const version = typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest().version : "1.2.2";
   let enabled = !(typeof chrome !== "undefined" && chrome.storage);
   let forceMode = true;
   let panelHidden = false;

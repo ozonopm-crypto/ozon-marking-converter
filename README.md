@@ -2,8 +2,6 @@
 
 Browser extension for Ozon Seller that prepares marking code separators when scanning Chestny ZNAK Data Matrix codes. Includes update notifications and a built-in test page.
 
-**Автор: Полухин Евгений Игоревич** · [Telegram: @eipolukhin](https://t.me/eipolukhin) · [Телефон: +7 (499) 411-12-12](tel:+74994111212)
-
 ## Скачать
 
 [Скачать версию 1.2.1](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/ozon-extension-1.2.1.zip)

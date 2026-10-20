@@ -4,7 +4,7 @@ Browser extension for Ozon Seller that prepares marking code separators when sca
 
 ## Версия 1.2.2
 
-Удалены контактные данные из расширения, добавлен значок красного сканера.
+Добавлен значок красного сканера.
 
 ## Скачать
 

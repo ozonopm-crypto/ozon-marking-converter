@@ -11,3 +11,7 @@ Copy-Item -LiteralPath "$workspace\work\installer-payload\OzonMarkingConverter.e
 Copy-Item -LiteralPath "$workspace\src\windows\OzonMarkingConverter.exe.config" -Destination "$workspace\work\FeatureTests.exe.config" -Force
 & "$workspace\work\FeatureTests.exe"
 if ($LASTEXITCODE -ne 0) { throw 'Feature tests failed.' }
+& $compiler /nologo /codepage:65001 /out:"$workspace\work\FieldValueTests.exe" /reference:"$workspace\work\installer-payload\OzonMarkingConverter.exe" "$PSScriptRoot\FieldValueTests.cs"
+if ($LASTEXITCODE -ne 0) { throw 'Focused field regression tests compilation failed.' }
+& "$workspace\work\FieldValueTests.exe"
+if ($LASTEXITCODE -ne 0) { throw 'Focused field regression tests failed.' }

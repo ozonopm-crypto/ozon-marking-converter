@@ -18,6 +18,16 @@ EN: The installer is written to outputs. Use TestMode for installation checks: s
 
 ## Regression checks / Проверки регрессий
 
+RU: В 1.2.4 пройдены 185 проверок: 80 ядра, 73 функций и 32 выбора источника поля. Новый искусственный случай воспроизводит пустой ValuePattern при TextPattern длиной 83, сохранение выбранного источника при повторном чтении, конфликт представлений и защиту COM от перезаписи текста, появившегося перед записью. Новая сборка не проверена в живом Ozon: управление Chrome остановилось на определении URL.
+
+EN: Version 1.2.4 passed 185 assertions: 80 core, 73 feature, and 32 field-source checks. New synthetic cases reproduce an empty ValuePattern with an 83-character TextPattern, pinned-source readback, source conflicts, and COM protection when text appears before writing. This build has not been verified in live Ozon: Chrome automation stopped at URL detection.
+
+RU: Читаются только представления активного поля. MSAA(point) использует физические экранные координаты внутри границ проверенного UIA-поля, затем проверяет фокус, состояние и известного владельца. Поиск других полей и чтение их текста не выполняются. Каждый отказ отражается в диагностике без значений, имён и координат.
+
+EN: Read only representations of the focused field. MSAA(point) uses physical screen coordinates within the verified UIA field's bounds, then checks focus, state, and known ownership. It does not search or read unrelated fields. Diagnostics records each failure without values, names, or coordinates.
+
+[Microsoft Edit pattern requirements / Требования Microsoft к Edit](https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-supporteditcontroltype) · [Chromium TextPattern documentation / Документация Chromium](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/accessibility/browser/uiautomation.md)
+
 RU: Проверяются разделители, контрольная цифра GTIN, границы скана, смена окна, COM-пакеты, подбор скорости и обновления. Новые проверки подтверждают, что неизменённый исходный код, обрезанный результат и потеря префикса не считаются успешной заменой.
 
 EN: Checks cover separators, GTIN check digits, scan boundaries, window changes, COM framing, baud detection, and updates. New tests reject an unchanged raw code, truncated result, and lost prefix as successful replacements.
@@ -50,6 +60,6 @@ RU: Увеличивайте версию и пишите двуязычное �
 
 EN: Increase the version and write bilingual notes. windows-updates.json is for Windows only; updates.json is for the extension. Do not replace old archives or installers.
 
-RU: Проверочная 1.2.3 размещается в ветке windows-scanner-fix-1.2.3. Не копируйте сгенерированный outputs/publish/windows-updates.json в main до проверки реального товара. После подтверждения публикуйте тот же проверенный установщик и его SHA256 в общем канале.
+RU: Проверочная 1.2.4 размещается в ветке windows-scanner-fix-1.2.4. Не копируйте сгенерированный outputs/publish/windows-updates.json в main до проверки реального товара. После подтверждения публикуйте тот же проверенный установщик и его SHA256 в общем канале.
 
-EN: Candidate 1.2.3 is hosted on windows-scanner-fix-1.2.3. Do not copy the generated outputs/publish/windows-updates.json into main before a real-item check. After validation, publish the same tested installer and its SHA256 to the shared channel.
+EN: Candidate 1.2.4 is hosted on windows-scanner-fix-1.2.4. Do not copy the generated outputs/publish/windows-updates.json into main before a real-item check. After validation, publish the same tested installer and its SHA256 to the shared channel.

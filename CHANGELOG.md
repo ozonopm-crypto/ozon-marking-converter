@@ -1,5 +1,23 @@
 # Changelog / История изменений
 
+## Windows 1.2.4 — candidate / проверочная версия
+
+RU:
+- Исправлен пропуск TextPattern при пустом ValuePattern: читаются оба представления одного активного поля, выбирается непустое. При конфликте непустых представлений замена отклоняется.
+- Повторное чтение остаётся на выбранном источнике, в том числе после записи. Пустой ValuePattern больше не скрывает существующий текст от проверки COM-вставки.
+- Добавлено резервное чтение MSAA в точке внутри границ проверенного поля, с проверкой фокуса, состояния, владельца и совпадения всего кода. Поиск по другим полям не выполняется.
+- Диагностика показывает длины ValuePattern/TextPattern и причины отказа каждого резервного способа; коды, имена полей и координаты в отчёт не включаются.
+- Пройдены 185 автоматических проверок, включая 32 новые проверки пустого ValuePattern, конфликтов, защиты COM и выбранного источника чтения. Установка и удаление проверены отдельно.
+- Проверка с физическим сканером в Ozon пока не подтверждена; общий канал склада остаётся на 1.2.2.
+
+EN:
+- Fixed skipped TextPattern reads when ValuePattern is empty. Read both representations of the same focused field and select the nonempty one; conflicting nonempty representations reject replacement.
+- Keep the selected reader pinned before and after writing. An empty ValuePattern no longer hides existing text from the COM insertion guard.
+- Added an MSAA fallback at a point within the verified field's bounds, checking focus, eligibility, ownership, and the full captured payload. Other fields are not searched.
+- Diagnostics shows ValuePattern/TextPattern lengths and every fallback-reader rejection reason without code contents, field names, or coordinates.
+- Passed 185 automated assertions, including 32 new empty-ValuePattern, conflict, COM protection, and reader-pinning checks. Installation and uninstallation were checked separately.
+- Physical scanner operation in live Ozon remains unverified; the warehouse feed stays on 1.2.2.
+
 ## Windows 1.2.3 — candidate / проверочная версия
 
 RU:

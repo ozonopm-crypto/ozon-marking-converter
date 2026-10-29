@@ -1,15 +1,15 @@
 MARKING CODE CONVERTER FOR OZON / ПРЕОБРАЗОВАТЕЛЬ КОДА ДЛЯ OZON — WINDOWS
 by PEI
 
-RU: Проверочная версия 1.2.3. Исправлены учёт Shift и замена разделителей
-с сохранением символов проверенного поля. Пройдены 153 автоматические
-проверки и тест прежнего несовпадения в настоящем окне Windows.
-Реальный сканер и Ozon требуют проверки на рабочем месте.
+RU: Проверочная версия 1.2.4. Исправлен пропуск TextPattern при пустом
+ValuePattern того же поля; добавлено резервное чтение MSAA в границах
+проверенного поля. Пройдены 185 автоматических проверок, включая
+случай «скан 83, поле 0». Реальный сканер и Ozon требуют проверки на месте.
 Общий канал обновлений остаётся на 1.2.2 до проверки реального товара.
-EN: Candidate 1.2.3 fixes Shift tracking and preserves verified field
-characters when repairing separators. Passed 153 automated assertions
-and the previous mismatch test in a real Windows window. Physical scanner
-and live Ozon validation are required. The shared feed remains on 1.2.2
+EN: Candidate 1.2.4 fixes skipped TextPattern reads when the same field
+exposes an empty ValuePattern, and adds a focused-field MSAA fallback.
+Passed 185 automated assertions, including the captured83/field0 case.
+Physical scanner and live Ozon validation are required. The shared feed remains on 1.2.2
 until a real item has been validated.
 
 УСТАНОВКА
@@ -82,6 +82,8 @@ https://github.com/ozonopm-crypto/ozon-marking-converter
 регистра захваченного текста. На вкладке «Диагностика» показываются
 длины и результаты сравнения. Сам код в отчёт не включён; отчёт остаётся
 только в памяти до следующей проверки или закрытия программы.
+Отдельно указаны длины ValuePattern/TextPattern и причины отказа
+резервных способов чтения. Имена полей и координаты в отчёт не включены.
 Перед массовым использованием проверьте один реальный товар в Ozon.
 Физический АТОЛ SB3100 BT и работу на складе нужно проверить на месте.
 
@@ -101,6 +103,9 @@ COM вставляет код только в пустое поле. Для USB 
 Также поддерживается точное совпадение считанного суффикса. Положение курсора
 учитывается только при замене суффикса, если в поле есть другой префикс.
 Через MSAA выполняется только проверенная замена поля целиком.
+Пустой ValuePattern не считается доказательством пустого поля, если
+TextPattern содержит текст. Противоречивые непустые представления
+отклоняются; способ чтения сохраняется до проверки записи.
 После записи результат перечитывается и проверяется.
 Если Windows не позволяет проверить поле, программа отказывается
 от изменения. При смене поля или вводе другого текста повторите скан.
@@ -172,6 +177,8 @@ The mismatch test checks preservation of field characters when captured
 letter case differs. Diagnostics shows lengths and comparison results
 without code contents. Its report exists only in memory until the next
 check or application exit.
+It also shows ValuePattern/TextPattern lengths and fallback-reader
+rejection reasons without field names or coordinates.
 Test one real item before warehouse-wide use. Physical ATOL SB3100 BT
 and the live Ozon field require validation at the workplace.
 
@@ -190,6 +197,9 @@ to the same physical scanner key; field letter case is preserved.
 Exact typed-suffix matching is also supported. Caret position is required only
 for suffix replacement with a separate prefix. MSAA supports only
 verified whole-field replacements.
+An empty ValuePattern is not treated as an empty field when TextPattern
+contains text. Conflicting nonempty representations reject replacement;
+readback stays on the selected reader.
 The result is read back after writing. Inaccessible fields, focus changes,
 and unverified values produce a failure message. A successful field write
 does not mean Ozon accepted the code. Check the field before rescanning.

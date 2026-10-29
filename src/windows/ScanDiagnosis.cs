@@ -5,7 +5,7 @@ namespace OzonMarkingDesktop
 {
     public static class ScanDiagnosis
     {
-        public static string Describe(ScanPacket packet, string field, string reader, ReplacementPlan plan)
+        public static string Describe(ScanPacket packet, string field, string reader, ReplacementPlan plan, string reads = null)
         {
             StringBuilder text = new StringBuilder();
             text.AppendLine("by PEI · RU / EN");
@@ -18,6 +18,11 @@ namespace OzonMarkingDesktop
             text.AppendLine("Совпадение клавиш / Physical-key correlation: " + MarkingCode.SamePhysicalPayload(packet.Raw, field));
             text.AppendLine("Формат поля / Field format: " + MarkingCode.Normalize(field).Ok);
             text.AppendLine("Источник / Source: " + (plan == null ? "отказ / rejected" : plan.UsesField ? "текст поля / visible field" : "клавиши / key events"));
+            if (!String.IsNullOrEmpty(reads))
+            {
+                text.AppendLine("Чтения поля / Field reads:");
+                text.Append(reads);
+            }
             text.AppendLine("Сам код и символы кода не включены. / No code contents are included.");
             return text.ToString();
         }

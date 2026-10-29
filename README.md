@@ -6,17 +6,17 @@ RU: Программа Windows и отдельное расширение бра
 
 EN: A Windows application and a separate browser extension that prepare separators in long Chestny ZNAK marking codes for Ozon Seller. Ozon validates the code and its status. Missing characters are not reconstructed, and letter case is not guessed.
 
-## Windows 1.2.3 — candidate / проверочная версия
+## Windows 1.2.4 — candidate / проверочная версия
 
-[Download Windows 1.2.3 candidate / Скачать проверочную версию Windows 1.2.3](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/windows-scanner-fix-1.2.3/downloads/OzonMarkingConverter-Setup-1.2.3.exe)
+[Download Windows 1.2.4 candidate / Скачать проверочную версию Windows 1.2.4](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/windows-scanner-fix-1.2.4/downloads/OzonMarkingConverter-Setup-1.2.4.exe)
 
-RU: Исправлено определение Shift по порядку событий клавиатуры. Если поле содержит корректный код и все его символы соответствуют клавишам скана, программа сохраняет текст поля и исправляет разделители. Добавлены запись значения целиком и диагностика без содержимого кода. **153 автоматические проверки и тест прежнего несовпадения в настоящем окне Windows пройдены. Физический АТОЛ и реальный Ozon ещё требуют проверки. Управление Chrome остановилось на проверке адреса страницы.**
+RU: В 1.2.3 получен отказ с длинами «скан 83, поле 0», хотя код виден в браузере. В 1.2.4 исправлен пропуск TextPattern при пустом ValuePattern того же поля. Если оба непустых источника противоречат друг другу, программа отказывается от замены. Добавлено резервное чтение MSAA в границах проверенного поля. Выбранный способ чтения сохраняется до проверки результата. **Пройдены 185 автоматических проверок. Физический АТОЛ и реальный Ozon ещё требуют проверки: управление Chrome остановилось на определении адреса страницы.**
 
-EN: Fixed Shift tracking using keyboard event order. If a valid field value corresponds to every key in the captured payload, the application preserves the field characters and repairs separators. Added whole-value writes and diagnostics without code contents. **153 automated assertions and the previous mismatch scenario passed in a real Windows window. Physical ATOL and live Ozon validation are still required. Chrome automation stopped at the page-address check.**
+EN: Version 1.2.3 reported a captured length of 83 and field length of zero despite visible browser text. Version 1.2.4 fixes skipped TextPattern reads when the same field exposes an empty ValuePattern. Conflicting nonempty sources reject replacement. Added an MSAA fallback within the verified focused field. The selected reader remains pinned through result verification. **185 automated assertions passed. Physical ATOL and live Ozon validation remain required: Chrome automation stopped at URL detection.**
 
-RU: Эта версия доступна отдельно. Общий канал обновлений main/windows-updates.json остаётся на 1.2.2 до проверки одного реального товара. Завершите старую программу кнопкой «Завершить работу», закройте диагностическую копию и установите 1.2.3. Отключите прежнее расширение, очистите поле маркировки Ozon и отсканируйте один товар. Если замена отклонена, откройте вкладку «Диагностика» — отчёт не содержит самого кода.
+RU: Эта версия доступна отдельно. Общий канал обновлений main/windows-updates.json остаётся на 1.2.2 до проверки одного реального товара. Завершите старую программу кнопкой «Завершить работу», закройте диагностическую копию и установите 1.2.4. Отключите прежнее расширение, очистите поле маркировки Ozon и отсканируйте один товар. Если замена отклонена, откройте вкладку «Диагностика» — теперь там указаны длины ValuePattern/TextPattern и причины отказа резервных способов чтения. Самого кода в отчёте нет.
 
-EN: This candidate is distributed separately. The shared main/windows-updates.json feed remains on 1.2.2 until one real item has been validated. Exit the old application and the diagnostic instance, then install 1.2.3. Disable the old extension, clear the Ozon marking-code field, and scan one item. If replacement is rejected, open Diagnostics; the report contains no code contents.
+EN: This candidate is distributed separately. The shared main/windows-updates.json feed remains on 1.2.2 until one real item has been validated. Exit the old application and diagnostic instance, then install 1.2.4. Disable the old extension, clear the Ozon marking-code field, and scan one item. If replacement is rejected, open Diagnostics: it now shows ValuePattern/TextPattern lengths and fallback-reader rejection reasons, without code contents.
 
 ### Installation and use / Установка и работа
 

@@ -13,8 +13,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Локальная подготовка разделителей кода маркировки")]
 [assembly: AssemblyCompany("by PEI")]
 [assembly: AssemblyCopyright("by PEI")]
-[assembly: AssemblyVersion("1.2.3.0")]
-[assembly: AssemblyFileVersion("1.2.3.0")]
+[assembly: AssemblyVersion("1.2.4.0")]
+[assembly: AssemblyFileVersion("1.2.4.0")]
 
 namespace OzonMarkingDesktop
 {
@@ -123,7 +123,7 @@ namespace OzonMarkingDesktop
             Controls.Add(root);
             Panel header = new Panel { Dock = DockStyle.Fill };
             Label title = LabelAt("Преобразователь кода для Ozon", 0, 0, 710, 35, 20, true);
-            Label subtitle = LabelAt("Windows 1.2.3 · by PEI · USB/HID, COM и Bluetooth через Windows", 1, 42, 710, 25, 10, false);
+            Label subtitle = LabelAt("Windows 1.2.4 · by PEI · USB/HID, COM и Bluetooth через Windows", 1, 42, 710, 25, 10, false);
             if (scannerVerification) subtitle.Text = "Проверка исправления / Fix verification · by PEI";
             subtitle.ForeColor = muted; header.Controls.Add(title); header.Controls.Add(subtitle); root.Controls.Add(header, 0, 0);
 
@@ -247,7 +247,7 @@ namespace OzonMarkingDesktop
                 }
             };
             page.Controls.Add(startup);
-            Label note = LabelAt("Параметры подключения подбираются автоматически. Выбирать USB, COM, номер порта или скорость не требуется.\r\n\r\nПоддерживаемая структура: GTIN 14 цифр, серийный номер 13 знаков, ключ 4 знака, проверочная часть 44 знака. Другие форматы программа не меняет.\r\n\r\nКоды обрабатываются локально и не передаются в интернет. Сохраняются настройки и найденные параметры COM. GitHub используется только для обновления программы.\r\n\r\nВерсия для Windows: 1.2.3\r\nby PEI", 17, 90, 680, 300, 10, false);
+            Label note = LabelAt("Параметры подключения подбираются автоматически. Выбирать USB, COM, номер порта или скорость не требуется.\r\n\r\nПоддерживаемая структура: GTIN 14 цифр, серийный номер 13 знаков, ключ 4 знака, проверочная часть 44 знака. Другие форматы программа не меняет.\r\n\r\nКоды обрабатываются локально и не передаются в интернет. Сохраняются настройки и найденные параметры COM. GitHub используется только для обновления программы.\r\n\r\nВерсия для Windows: 1.2.4\r\nby PEI", 17, 90, 680, 300, 10, false);
             note.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right; note.ForeColor = muted; page.Controls.Add(note);
         }
         private void Loaded(object sender, EventArgs args)
@@ -306,7 +306,7 @@ namespace OzonMarkingDesktop
         private void BuildUpdates(TabPage page)
         {
             page.Controls.Add(LabelAt("Обновление программы", 17, 20, 680, 35, 16, true));
-            updateStatus = LabelAt("Установлена версия 1.2.3. Проверяю наличие новых версий после запуска и каждые 6 часов. Интернет нужен только для обновлений.", 17, 70, 680, 170, 11, false); page.Controls.Add(updateStatus);
+            updateStatus = LabelAt("Установлена версия 1.2.4. Проверяю наличие новых версий после запуска и каждые 6 часов. Интернет нужен только для обновлений.", 17, 70, 680, 170, 11, false); page.Controls.Add(updateStatus);
             updateButton = ButtonOf("Проверить обновления", 270, true); updateButton.Left = 17; updateButton.Top = 250;
             updateButton.Click += delegate { if (availableUpdate == null) CheckUpdate(true); else InstallUpdate(); }; page.Controls.Add(updateButton);
             page.Controls.Add(LabelAt("Когда появится новая версия, здесь будет кнопка «Обновить». Программа сама скачает установщик, закроется и запустится после установки. Настройки и ярлыки сохранятся. Скачивать файлы вручную не требуется.\r\n\r\nИсточник: GitHub · ozonopm-crypto/ozon-marking-converter\r\nby PEI", 17, 310, 680, 115, 10, false));
@@ -324,7 +324,7 @@ namespace OzonMarkingDesktop
                     {
                         availableUpdate = UpdatePolicy.Newer(release.version, typeof(MainWindow).Assembly.GetName().Version) ? release : null;
                         updateButton.Text = availableUpdate == null ? "Проверить обновления" : "Обновить до " + release.version;
-                        updateStatus.Text = availableUpdate == null ? "Установлена актуальная версия 1.2.3. Проверено: " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") : "Доступна версия " + release.version + ".\r\n\r\n" + release.notes;
+                        updateStatus.Text = availableUpdate == null ? "Установлена актуальная версия 1.2.4. Проверено: " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") : "Доступна версия " + release.version + ".\r\n\r\n" + release.notes;
                         if (availableUpdate != null) { tray.BalloonTipTitle = "Доступно обновление " + release.version; tray.BalloonTipText = "Откройте программу → Обновления → Обновить."; tray.ShowBalloonTip(8000); }
                     });
                 }

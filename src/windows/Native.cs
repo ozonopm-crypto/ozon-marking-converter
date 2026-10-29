@@ -120,77 +120,152 @@ namespace OzonMarkingDesktop
     internal sealed class FocusFrame
     {
         public static string UnavailableReason;
+        [ThreadStatic] public static string LastTrace;
         public string Identity;
         public string Value;
         public bool CaretAtEnd;
         public bool WholeValueOnly;
+        public bool HasNonEmptyRepresentation;
+        public bool Conflicted;
+        public string Reader;
+        public string Trace;
+        public string UiaSource;
+        public bool HasPoint;
+        public bool LegacyAtPoint;
+        public int PointX, PointY;
         public Accessibility.IAccessible LegacyObject;
         public object LegacyChild;
         public Action<string> WriteValue;
-        public static FocusFrame Alternative(FocusFrame previous, bool ownTest)
+        public static FocusFrame Alternative(FocusFrame previous, bool ownTest, int attempt)
         {
+            LastTrace = "Alternative reader unavailable / Резервное чтение недоступно";
+            if (previous.Conflicted) { LastTrace = "UIA source conflict / Конфликт источников UIA"; return null; }
             if (!Native.BrowserWindow(Native.GetForegroundWindow())) return null;
-            try { return previous.LegacyObject == null ? LegacyFocus.Read() : ReadUia(ownTest); } catch { return null; }
+            try
+            {
+                if (attempt == 0 && previous.LegacyObject != null) return ReadUia(ownTest, null);
+                if (attempt == 0)
+                {
+                    FocusFrame result = LegacyFocus.Read(); LastTrace = LegacyFocus.LastTrace; return result;
+                }
+                if (previous.HasPoint)
+                {
+                    FocusFrame result = LegacyFocus.ReadAt(previous.PointX, previous.PointY); LastTrace = LegacyFocus.LastTrace; return result;
+                }
+                LastTrace = "No focused-field point / Нет точки проверенного поля";
+            }
+            catch { LastTrace = "Alternative reader error / Ошибка резервного чтения"; }
+            return null;
         }
         public static FocusFrame Read(bool ownTest)
         {
-            try { FocusFrame uia = ReadUia(ownTest); if (uia != null) return uia; } catch { }
+            try { FocusFrame uia = ReadUia(ownTest, null); if (uia != null) return uia; } catch { LastTrace = "UIA read error / Ошибка чтения UIA"; }
+            string uiaTrace = LastTrace;
             if (Native.BrowserWindow(Native.GetForegroundWindow()))
             {
-                try { FocusFrame legacy = LegacyFocus.Read(); if (legacy != null) return legacy; } catch { }
+                try
+                {
+                    FocusFrame legacy = LegacyFocus.Read();
+                    LastTrace = uiaTrace + "\r\n" + LegacyFocus.LastTrace;
+                    if (legacy != null) { legacy.Trace = LastTrace; return legacy; }
+                }
+                catch { LastTrace = uiaTrace + "\r\nMSAA read error / Ошибка чтения MSAA"; }
             }
             return null;
         }
         public static FocusFrame ReadLike(FocusFrame previous, bool ownTest)
         {
-            return previous.LegacyObject != null ? LegacyFocus.Read() : ReadUia(ownTest);
+            if (previous.LegacyObject == null) return ReadUia(ownTest, previous.UiaSource);
+            FocusFrame result = previous.LegacyAtPoint ? LegacyFocus.ReadAt(previous.PointX, previous.PointY) : LegacyFocus.Read();
+            LastTrace = LegacyFocus.LastTrace;
+            return result;
         }
-        private static FocusFrame ReadUia(bool ownTest)
+        private static FocusFrame ReadUia(bool ownTest, string preferredSource)
         {
+            LastTrace = "UIA: no focused field / Нет поля в фокусе";
             UnavailableReason = "нет фокуса";
             AutomationElement element = AutomationElement.FocusedElement;
             if (element == null) return null;
             AutomationElement.AutomationElementInformation info = element.Current;
             UnavailableReason = "тип поля: " + info.ControlType.ProgrammaticName;
             bool ownDocument = ownTest && info.ProcessId == Process.GetCurrentProcess().Id && info.ControlType == ControlType.Document;
-            if ((info.ControlType != ControlType.Edit && !ownDocument) || info.IsPassword || !info.IsEnabled) return null;
+            if ((info.ControlType != ControlType.Edit && !ownDocument) || info.IsPassword || !info.IsEnabled || info.IsOffscreen || !info.HasKeyboardFocus)
+            { LastTrace = "UIA: focused editable field not eligible / Поле недоступно для изменения"; return null; }
             UnavailableReason = "процесс поля не совпадает";
-            if (!Native.BrowserProcess(info.ProcessId) && !(ownTest && info.ProcessId == Process.GetCurrentProcess().Id)) return null;
+            if (!Native.BrowserProcess(info.ProcessId) && !(ownTest && info.ProcessId == Process.GetCurrentProcess().Id))
+            { LastTrace = "UIA: field process rejected / Процесс поля отклонён"; return null; }
             string name = (info.Name ?? "").ToLowerInvariant();
             string id = (info.AutomationId ?? "").ToLowerInvariant();
             UnavailableReason = "поле адреса или поиска";
-            if (name.Contains("адрес") || name.Contains("address") || name.Contains("поиск") || name.Contains("search") || id.Contains("omnibox")) return null;
+            if (name.Contains("адрес") || name.Contains("address") || name.Contains("поиск") || name.Contains("search") || id.Contains("omnibox"))
+            { LastTrace = "UIA: address or search field rejected / Адресное или поисковое поле отклонено"; return null; }
             object valueObject;
-            string value = null;
+            string value = null, textValue = null;
+            string valueState = "unsupported / нет", textState = "unsupported / нет";
             Action<string> writer = null;
-            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out valueObject))
+            bool writableValue = false;
+            try
             {
-                ValuePattern pattern = (ValuePattern)valueObject;
-                UnavailableReason = "поле только для чтения";
-                if (pattern.Current.IsReadOnly) return null;
-                value = pattern.Current.Value;
-                writer = pattern.SetValue;
-            }
-            bool end = true;
-            object textObject;
-            if (element.TryGetCurrentPattern(TextPattern.Pattern, out textObject))
-            {
-                TextPattern pattern = (TextPattern)textObject;
-                if (value == null)
+                if (element.TryGetCurrentPattern(ValuePattern.Pattern, out valueObject))
                 {
-                    object readOnly = pattern.DocumentRange.GetAttributeValue(TextPattern.IsReadOnlyAttribute);
-                    if (!(readOnly is bool) || (bool)readOnly) return null;
-                    value = pattern.DocumentRange.GetText(2048);
-                    // Some UIA providers add a document terminator not present in an edit value.
-                    value = value.TrimEnd('\r', '\n');
+                    ValuePattern pattern = (ValuePattern)valueObject;
+                    if (pattern.Current.IsReadOnly) { LastTrace = "UIA ValuePattern: read-only / Только чтение"; return null; }
+                    writableValue = true;
+                    value = pattern.Current.Value;
+                    valueState = value == null ? "null" : value.Length.ToString();
+                    writer = pattern.SetValue;
                 }
-                TextPatternRange[] selection = pattern.GetSelection();
-                if (selection.Length != 1) end = false;
-                else end = selection[0].CompareEndpoints(TextPatternRangeEndpoint.Start, selection[0], TextPatternRangeEndpoint.End) == 0 && selection[0].CompareEndpoints(TextPatternRangeEndpoint.End, pattern.DocumentRange, TextPatternRangeEndpoint.End) == 0;
             }
-            UnavailableReason = "не предоставлены ValuePattern и TextPattern";
-            if (value == null) return null;
-            return new FocusFrame { Value = value, Identity = String.Join(".", Array.ConvertAll(element.GetRuntimeId(), n => n.ToString())), CaretAtEnd = end, WriteValue = writer };
+            catch { value = null; valueState = "error / ошибка"; writer = null; }
+            bool end = false;
+            object textObject;
+            try
+            {
+                if (element.TryGetCurrentPattern(TextPattern.Pattern, out textObject))
+                {
+                    TextPattern pattern = (TextPattern)textObject;
+                    object readOnly = pattern.DocumentRange.GetAttributeValue(TextPattern.IsReadOnlyAttribute);
+                    if (readOnly is bool && (bool)readOnly)
+                    { LastTrace = "UIA TextPattern: read-only / Только чтение"; return null; }
+                    if (readOnly is bool || writableValue)
+                    {
+                        // RU: Читаем TextPattern и при пустом ValuePattern того же поля.
+                        // EN: Read TextPattern even when the same field exposes an empty ValuePattern.
+                        textValue = pattern.DocumentRange.GetText(2048);
+                        if (textValue != null) textValue = textValue.TrimEnd('\r', '\n');
+                        textState = textValue == null ? "null" : textValue.Length.ToString();
+                    }
+                    else textState = "writability unknown / Запись не подтверждена";
+                    try
+                    {
+                        TextPatternRange[] selection = pattern.GetSelection();
+                        end = selection.Length == 1 && selection[0].CompareEndpoints(TextPatternRangeEndpoint.Start, selection[0], TextPatternRangeEndpoint.End) == 0 && selection[0].CompareEndpoints(TextPatternRangeEndpoint.End, pattern.DocumentRange, TextPatternRangeEndpoint.End) == 0;
+                    }
+                    catch { end = false; }
+                }
+            }
+            catch { textValue = null; textState = "error / ошибка"; }
+            LastTrace = "UIA ValuePattern: " + valueState + "; TextPattern: " + textState;
+            if (value != null && value.Length > 1024 || textValue != null && textValue.Length > 1024)
+            { LastTrace += "; oversized / Слишком длинное поле"; return null; }
+            FieldValueSelection chosen = FieldValuePolicy.Select(value, textValue, preferredSource);
+            LastTrace += "; selected / Выбран: " + (chosen == null ? "unavailable / недоступен" : chosen.Source);
+            var bounds = info.BoundingRectangle;
+            bool hasPoint = !bounds.IsEmpty && bounds.Width > 0 && bounds.Height > 0 && !Double.IsInfinity(bounds.X) && !Double.IsInfinity(bounds.Y);
+            return new FocusFrame
+            {
+                Value = chosen == null ? null : chosen.Value,
+                Conflicted = chosen != null && chosen.Conflict,
+                Identity = String.Join(".", Array.ConvertAll(element.GetRuntimeId(), n => n.ToString())),
+                CaretAtEnd = end, WholeValueOnly = !end,
+                Reader = "UIA/" + (chosen == null ? "unavailable" : chosen.Source), Trace = LastTrace,
+                UiaSource = preferredSource ?? (chosen == null || chosen.Conflict ? null : chosen.Source),
+                HasNonEmptyRepresentation = FieldValuePolicy.HasContent(value, textValue),
+                WriteValue = chosen != null && chosen.Source == "ValuePattern" ? writer : null,
+                HasPoint = hasPoint,
+                PointX = hasPoint ? (int)(bounds.X + bounds.Width / 2) : 0,
+                PointY = hasPoint ? (int)(bounds.Y + bounds.Height / 2) : 0
+            };
         }
     }
 
@@ -361,6 +436,15 @@ namespace OzonMarkingDesktop
             string captured = MarkingCode.DemoRaw.ToLowerInvariant();
             ProcessPacket(new ScanPacket { Raw = captured, Typed = captured, Window = window, AllowOwnTest = true, Generation = Interlocked.Read(ref generation) });
         }
+        private static void RecordRead(StringBuilder trace, string stage, FocusFrame frame)
+        {
+            trace.AppendLine(stage + ": " + (frame == null ? FocusFrame.LastTrace : frame.Trace));
+        }
+        private void PublishDiagnosis(ScanPacket packet, FocusFrame frame, ReplacementPlan plan, StringBuilder reads)
+        {
+            Action<string> diagnosis = Diagnosis;
+            if (diagnosis != null) diagnosis(ScanDiagnosis.Describe(packet, frame == null ? null : frame.Value, frame == null ? "unavailable / недоступен" : frame.Reader, plan, reads.ToString()));
+        }
         private void ProcessPacket(ScanPacket packet)
         {
             CodeResult result = MarkingCode.Normalize(packet.Raw);
@@ -368,14 +452,21 @@ namespace OzonMarkingDesktop
             busy = true; busySince = Now;
             Task.Factory.StartNew(delegate
             {
+                StringBuilder reads = new StringBuilder();
                 try
                 {
                     if (!Ready(packet)) { Report("Ввод или активное окно изменились. Код не заменён. Повторите сканирование.", true); return; }
                     FocusFrame first = FocusFrame.Read(packet.AllowOwnTest);
+                    RecordRead(reads, "Initial / Первое чтение", first);
                     for (int attempt = 0; first == null && attempt < 4 && Ready(packet); attempt++)
                     { Thread.Sleep(100); first = FocusFrame.Read(packet.AllowOwnTest); }
-                    if (first == null) { Report("Браузер не предоставил доступ к активному полю. Нажмите на поле маркировки и повторите сканирование.", true); return; }
-                    ReplacementPlan plan = ReplacementPlan.Resolve(first.Value, packet, first.WholeValueOnly);
+                    if (first == null)
+                    {
+                        RecordRead(reads, "Retry / Повтор", null);
+                        PublishDiagnosis(packet, null, null, reads);
+                        Report("Браузер не предоставил доступ к активному полю. Подробности на вкладке «Диагностика».", true); return;
+                    }
+                    ReplacementPlan plan = packet.DirectInput && first.HasNonEmptyRepresentation ? null : ReplacementPlan.Resolve(first.Value, packet, first.WholeValueOnly);
                     long settleUntil = Now + 600;
                     while (plan == null && Ready(packet) && Now < settleUntil)
                     {
@@ -383,22 +474,27 @@ namespace OzonMarkingDesktop
                         FocusFrame settled = FocusFrame.ReadLike(first, packet.AllowOwnTest);
                         if (settled == null || settled.Identity != first.Identity) break;
                         first = settled;
-                        plan = ReplacementPlan.Resolve(first.Value, packet, first.WholeValueOnly);
+                        plan = packet.DirectInput && first.HasNonEmptyRepresentation ? null : ReplacementPlan.Resolve(first.Value, packet, first.WholeValueOnly);
                     }
-                    if (plan == null && Ready(packet))
+                    RecordRead(reads, "Settled / После ожидания", first);
+                    for (int alternativeIndex = 0; plan == null && alternativeIndex < 2 && !(packet.DirectInput && first.HasNonEmptyRepresentation) && Ready(packet); alternativeIndex++)
                     {
-                        FocusFrame alternative = FocusFrame.Alternative(first, packet.AllowOwnTest);
+                        FocusFrame alternative = FocusFrame.Alternative(first, packet.AllowOwnTest, alternativeIndex);
+                        RecordRead(reads, "Alternative " + (alternativeIndex + 1) + " / Резерв", alternative);
                         if (alternative != null)
                         {
-                            ReplacementPlan alternativePlan = ReplacementPlan.Resolve(alternative.Value, packet, alternative.WholeValueOnly);
+                            ReplacementPlan alternativePlan = packet.DirectInput && alternative.HasNonEmptyRepresentation ? null : ReplacementPlan.Resolve(alternative.Value, packet, alternative.WholeValueOnly);
                             if (alternativePlan != null) { first = alternative; plan = alternativePlan; }
                         }
                     }
-                    Action<string> diagnosis = Diagnosis;
-                    if (diagnosis != null) diagnosis(ScanDiagnosis.Describe(packet, first.Value, first.LegacyObject == null ? "UIA" : "MSAA", plan));
+                    PublishDiagnosis(packet, first, plan, reads);
                     if (plan == null || (!plan.ReplaceWhole && !first.CaretAtEnd)) { Report("Не удалось подтвердить текст поля. Причина записана на вкладке «Диагностика». Код не изменён.", true); return; }
                     FocusFrame second = FocusFrame.ReadLike(first, packet.AllowOwnTest);
-                    if (second == null || second.Identity != first.Identity || second.Value != first.Value || (!plan.ReplaceWhole && !second.CaretAtEnd) || !Ready(packet)) { Report("Во время проверки изменился ввод. Повторите сканирование.", true); return; }
+                    if (second == null || second.Identity != first.Identity || second.Value != first.Value || (packet.DirectInput && second.HasNonEmptyRepresentation) || (!plan.ReplaceWhole && !second.CaretAtEnd) || !Ready(packet))
+                    {
+                        RecordRead(reads, "Before write / Перед записью", second); PublishDiagnosis(packet, second, plan, reads);
+                        Report("Во время проверки изменился ввод. Повторите сканирование.", true); return;
+                    }
                     if (Native.Down(0x10) || Native.Down(0x11) || Native.Down(0x12) || Native.Down(0x5b) || Native.Down(0x5c)) { Report("Отпустите клавиши-модификаторы и повторите сканирование.", true); return; }
                     bool sent = plan.Matches(second.Value);
                     if (!sent && (second.WriteValue != null || second.LegacyObject != null))
@@ -423,20 +519,24 @@ namespace OzonMarkingDesktop
                         Report("Windows не выполнила ввод полностью. Обработка остановлена. Проверьте поле вручную.", true); return;
                     }
                     int stable = 0;
+                    FocusFrame lastRead = null;
                     long verifyUntil = Now + 1500;
                     while (Now < verifyUntil && Ready(packet))
                     {
                         Thread.Sleep(50);
                         FocusFrame actual = FocusFrame.ReadLike(first, packet.AllowOwnTest);
+                        lastRead = actual;
                         if (actual == null || actual.Identity != first.Identity) break;
                         stable = plan.Matches(actual.Value) ? stable + 1 : 0;
                         if (stable >= 2) break;
                     }
                     if (stable < 2 || !Ready(packet))
                     {
+                        RecordRead(reads, "Readback / Проверка записи", lastRead); PublishDiagnosis(packet, lastRead, plan, reads);
                         Report("Замена не подтверждена: браузер не сохранил разделители или фокус изменился. Проверьте поле и повторите сканирование.", true);
                         return;
                     }
+                    RecordRead(reads, "Readback / Проверка записи", lastRead); PublishDiagnosis(packet, lastRead, plan, reads);
                     if (context != null) context.Post(delegate
                     {
                         if (!disposed && enabled && packet.Window == Native.GetForegroundWindow() && packet.Generation == Interlocked.Read(ref generation))
@@ -445,7 +545,7 @@ namespace OzonMarkingDesktop
                     Action<string, bool> callback = Converted; if (!disposed && callback != null) callback(plan.Expected, packet.DirectInput);
                     Report("Разделители записаны и проверены в поле. Проверьте ответ Ozon. Подтверждение — вручную.", false);
                 }
-                catch { Report("Не удалось проверить активное поле. Код не изменён. Повторите сканирование.", true); }
+                catch { Report("Не удалось завершить проверку поля. Проверьте содержимое поля вручную перед повторным сканированием.", true); }
                 finally { busy = false; }
             });
         }

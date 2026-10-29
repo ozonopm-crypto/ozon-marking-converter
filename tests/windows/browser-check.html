@@ -1,0 +1,21 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>PEI browser verification / Проверка браузера</title>
+<style>body{font:18px system-ui;max-width:950px;margin:60px auto}input{width:100%;font:16px Consolas;padding:16px;box-sizing:border-box}p{line-height:1.5}output{white-space:pre-wrap}button{padding:12px}</style>
+<h1>Проверка браузера / Browser verification · by PEI</h1>
+<p>Искусственный пример без товара и заказов. / Synthetic example without real products or orders.</p>
+<label>Тест маркировки PEI / PEI marking test<input id="code" aria-label="Тест маркировки PEI / PEI marking test"></label>
+<p><button id="reset">Сбросить пример / Reset example</button></p><output id="result"></output>
+<script>
+const raw = "010474334896754821TEST12345678991TEST92" + "A".repeat(43) + "=";
+const marker = String.raw`\u001d`;
+const expected = raw.slice(0,31) + marker + raw.slice(31,37) + marker + raw.slice(37);
+let inputs = 0, changes = 0;
+const code = document.querySelector("#code"), result = document.querySelector("#result");
+function report() {
+  const ok = code.value === expected || code.value === expected.replaceAll(marker, "\x1d");
+  result.textContent = (ok ? "PASS / УСПЕХ" : "WAIT / ОЖИДАНИЕ") + "\ninput events: " + inputs + "; change events: " + changes + "\nvalue: " + JSON.stringify(code.value);
+}
+code.addEventListener("input", () => { inputs++; report(); });
+code.addEventListener("change", () => { changes++; report(); });
+document.querySelector("#reset").onclick = () => { code.value=raw; inputs=0;changes=0;report();code.focus(); };
+code.value=raw;report();
+</script>

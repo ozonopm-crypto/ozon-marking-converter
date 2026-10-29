@@ -147,4 +147,73 @@ https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/upd
 выключите одно из них на время проверки, чтобы избежать двойной обработки.
 
 АВТОР
-Полухин Евгений Игоревич
+by PEI
+
+
+
+ENGLISH — OZON BROWSER EXTENSION 1.2.2
+by PEI
+
+INSTALLATION AND UPGRADE
+Extract the ZIP into a permanent directory. In Yandex Browser open
+browser://extensions; in Chrome chrome://extensions; in Edge
+edge://extensions; in Opera opera://extensions. Enable developer mode,
+load the ozon-extension folder containing manifest.json, and allow access
+to https://seller.ozon.ru. Keep the folder in place. Install separately in
+each browser and profile. After upgrading, reload the extension and every
+open Ozon tab. Do not run two versions or the Windows converter together.
+This desktop Chromium build does not support Firefox, Safari, or mobile.
+
+USE
+ENGLISH KEYBOARD LAYOUT (ENG) AND CAPS LOCK OFF ARE REQUIRED.
+Open Ozon's marking-code field, clear it, focus it, and scan one item.
+The extension prepares separators; check Ozon's response and confirm
+the item manually. Clear code empties the selected field.
+Force mode accepts a complete supported code even without a recognized
+field label. Ordinary text is not changed.
+
+FIELD OR PANEL NOT FOUND
+In the extension popup, choose Select marking field, then click the
+target field. Esc cancels selection. A newly created Ozon field may
+need selection again. Verify that the extension is enabled, has access
+to seller.ozon.ru, and is version 1.2.2. Reload the tab with Ctrl+R.
+Opening the popup can reattach the handler; Check and apply now rescans
+fields and restores a hidden panel. The extension also rescans after
+page changes and periodically. It cannot enable itself after being
+disabled by the browser or an administrator. Respect workplace policies.
+
+TEST AND FORMAT
+Use Check without Ozon for a synthetic example or a scanner test.
+The result contains two escaped GS markers. The synthetic code is not
+a product and must not be submitted to Ozon. Verify a real item before
+warehouse use.
+Supported format: GTIN 14 digits, serial 13 characters, key 4 characters,
+verification block 44 characters ending in '='. Missing or substituted
+separators can be handled; supported representations include actual GS,
+Tab, spaces, F8, Ctrl+], escaped GS, [GS], <GS>, {GS}, #GS#, #29 and #29F.
+Tab/F8/Ctrl+] are intercepted only at expected separator boundaries.
+Letters, digits, and letter case are not repaired. Missing characters
+are not reconstructed. Ozon checks authenticity and status.
+
+DATA AND UPDATES
+The extension processes codes locally, keeps no code history, and
+does not request cookies, browser history, or clipboard access.
+It stores preferences, update URL, and version-check information.
+The GitHub ZIP build checks for updates at startup and approximately
+every six hours. The default feed is:
+https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/updates.json
+Code and order data are not included in update requests.
+A newer version displays NEW and a download link. Replace files in the
+existing folder manually, reload the extension, then reload Ozon tabs.
+A blank saved update URL disables checks. A previous custom URL remains
+saved until changed. Conversion continues if GitHub is unavailable.
+This ZIP distribution has no automatic file installation. Its behavior
+is separate from any store-distributed version.
+Version 1.2.2 added a red scanner icon. Earlier changes added force mode,
+field rescanning, startup reattachment, and bounded retries when Ozon
+rewrites a value. Actual GS decoded by Ozon is not repeatedly rewritten.
+
+LIMITATIONS
+Browser installation, physical scanners, and the current Ozon field
+require verification at the workplace. Neither the extension nor a
+successful conversion guarantees that Ozon will accept the product.

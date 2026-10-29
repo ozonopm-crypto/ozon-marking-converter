@@ -1,4 +1,4 @@
-ОБНОВЛЕНИЯ WINDOWS-ПРОГРАММЫ
+WINDOWS UPDATES / ОБНОВЛЕНИЯ WINDOWS-ПРОГРАММЫ
 by PEI
 
 СОТРУДНИКУ
@@ -12,7 +12,8 @@ by PEI
 1. Откройте:
    https://github.com/ozonopm-crypto/ozon-marking-converter/actions/workflows/windows-release.yml
 2. Выберите Run workflow.
-3. Укажите номер ВЫШЕ текущего, например 1.2.1, и кратко опишите изменения.
+3. Укажите номер ВЫШЕ текущего и заполните два описания: notes_ru
+   на русском и notes_en на английском.
 4. Нажмите зелёную Run workflow и дождитесь успешного завершения.
 5. GitHub соберёт установщик, запустит тесты и опубликует:
    downloads/OzonMarkingConverter-Setup-НОМЕР.exe
@@ -32,3 +33,36 @@ by PEI
 
 HTTPS и SHA256 проверяют целостность скачанного файла. Это не цифровая
 подпись Windows. Недоступный, повреждённый либо старый выпуск не ставится.
+
+ENGLISH
+by PEI
+
+FOR STAFF
+Install 1.2.0 or newer once. The application checks for updates after
+startup and every six hours. When a newer version appears, open Updates
+and click Update. Downloading, integrity verification, installation and
+restart are handled by the application. No manual file replacement or
+browser-extension reactivation is required.
+
+FOR THE OWNER
+1. Open:
+   https://github.com/ozonopm-crypto/ozon-marking-converter/actions/workflows/windows-release.yml
+2. Click Run workflow.
+3. Enter a version higher than the current one. Fill in notes_ru in
+   Russian and notes_en in English.
+4. Start the workflow and wait for a successful result.
+5. GitHub builds and tests the installer, then publishes:
+   downloads/OzonMarkingConverter-Setup-VERSION.exe
+   windows-updates.json
+6. Staff will receive an update notification. Check for updates in the
+   application can be used immediately instead of waiting.
+
+Increasing a version number does not fix software by itself.
+Implement and verify source changes before publishing a new version.
+Test real warehouse behavior on one workstation before wider use.
+If Actions is disabled, the repository owner must enable it on GitHub.
+Warehouse staff do not need GitHub passwords or access tokens.
+Releases are public, but codes and order data must not be published.
+Keep the repository URL and windows-updates.json location unchanged.
+HTTPS and SHA256 verify download integrity; they are not a Windows
+digital signature. Unavailable, damaged, or older releases are rejected.

@@ -36,6 +36,18 @@ internal static class FeatureTests
         Check(ScanBuffer.CanReplace("", direct), "COM can fill empty field");
         Check(!ScanBuffer.CanReplace("existing text", direct), "COM cannot erase existing text");
         Check(!ScanBuffer.CanReplace(null, direct), "COM cannot fill unreadable field");
+        string prepared = MarkingCode.Normalize(MarkingCode.DemoRaw).Code;
+        ScanPacket keyboard = new ScanPacket { Typed = MarkingCode.DemoRaw };
+        ReplacementPlan plan = ReplacementPlan.Create(keyboard.Typed, keyboard, prepared, true);
+        Check(plan != null && plan.Matches(prepared), "full-field replacement verified");
+        Check(plan.Matches(prepared.Replace(MarkingCode.Marker, "\x1d")), "decoded GS from Ozon accepted");
+        Check(!plan.Matches(MarkingCode.DemoRaw), "unmodified raw code is never success");
+        Check(!plan.Matches(prepared.Substring(0, prepared.Length - 1)), "truncated result is never success");
+        Check(ReplacementPlan.Create("prefix" + keyboard.Typed, keyboard, prepared, true) == null, "MSAA must not select unrelated prefix");
+        plan = ReplacementPlan.Create("prefix" + keyboard.Typed, keyboard, prepared, false);
+        Check(plan != null && plan.Matches("prefix" + prepared), "UIA suffix preserves verified prefix");
+        Check(!plan.Matches(prepared), "lost prefix rejected");
+        Check(ReplacementPlan.Create("existing", direct, prepared, true) == null, "COM never replaces existing text");
         ScanBuffer layoutBuffer = new ScanBuffer();
         long stamp = 1000;
         foreach (char ch in MarkingCode.DemoRaw)

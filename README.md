@@ -1,62 +1,69 @@
-# Преобразователь кода для Ozon
+# Marking Code Converter for Ozon / Преобразователь кода для Ozon
 
-Browser extension for Ozon Seller that prepares marking code separators when scanning Chestny ZNAK Data Matrix codes. Includes update notifications and a built-in test page.
+**by PEI · Русский / English**
 
-## Версия 1.2.2
+RU: Программа Windows и отдельное расширение браузера для подготовки разделителей длинных кодов маркировки «Честный ЗНАК» в Ozon Seller. Подлинность и статус кода проверяет Ozon. Пропущенные символы не восстанавливаются, регистр не исправляется наугад.
 
-Добавлен значок красного сканера.
+EN: A Windows application and a separate browser extension that prepare separators in long Chestny ZNAK marking codes for Ozon Seller. Ozon validates the code and its status. Missing characters are not reconstructed, and letter case is not guessed.
 
-## Скачать
+## Windows 1.2.1 — validation build / сборка для проверки
 
-[Скачать версию 1.2.2](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/ozon-extension-1.2.2.zip)
+[Download Windows installer / Скачать установщик Windows](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.1.exe)
 
-**Перед сканированием: английская раскладка (ENG), Caps Lock выключен.**
+RU: В 1.2.0 обнаружены проблемы доступа к полю Яндекс Браузера и преждевременное сообщение об успешной замене. В 1.2.1 добавлен доступ к активному полю через MSAA и проверка сохранённого результата. **Исправление требует проверки на физическом сканере и в рабочем Ozon. Управление браузером в среде разработки было остановлено, поэтому сквозной браузерный тест не подтверждён.**
 
-## Установка
+EN: Version 1.2.0 had field-access failures in Yandex Browser and could report success before verifying the replacement. Version 1.2.1 adds MSAA access to the focused field and verifies the stored result. **Validation with a physical scanner and the live Ozon field is still required. Browser automation in the development environment was stopped, so the end-to-end browser test has not been confirmed.**
 
-1. Скачайте архив и распакуйте его в постоянную папку.
-2. В Яндекс Браузере откройте `browser://extensions`, в Chrome — `chrome://extensions`, в Edge — `edge://extensions`, в Opera — `opera://extensions`.
-3. Включите режим разработчика, нажмите «Загрузить распакованное расширение», выберите папку `ozon-extension` с `manifest.json`.
-4. Откройте или обновите [Ozon Seller](https://seller.ozon.ru). Через значок расширения можно запустить «Проверку без Ozon».
-5. Проверьте реальный товар в Ozon перед использованием на складе. Кнопку «Подтвердить» нажимает сотрудник.
+### Installation and use / Установка и работа
 
-Расширение устанавливается отдельно в каждом браузере и профиле. Папку установки нельзя удалять или перемещать. Если установка запрещена политикой организации, обратитесь к администратору. Firefox, Safari и мобильные браузеры этой сборкой не поддерживаются.
+RU: Windows 10/11 x64, .NET Framework 4.8. Установщик создаёт ярлыки на рабочем столе и в меню «Пуск». Автозапуск при входе в Windows выбран по умолчанию; при первой установке обработка включена. Крестик скрывает программу в трей. Для полного выхода используйте «Завершить работу». Обновление сохраняет настройки.
 
-## Обновления
+EN: Requires Windows 10/11 x64 and .NET Framework 4.8. The installer creates Desktop and Start menu shortcuts. Startup at Windows sign-in is selected by default, and processing starts enabled on a fresh installation. Closing the window hides the application in the tray. Use Exit to stop it completely. Updating preserves preferences.
 
-В 1.2.2 адрес обновлений уже настроен. Проверка выполняется при запуске и примерно раз в 6 часов работающего браузера. Есть ручная кнопка «Проверить обновления». При новой версии появляются отметка **NEW** и ссылка скачивания.
+RU: Отключите прежнее расширение преобразователя. Подключите сканер, очистите поле маркировки Ozon, нажмите на него и отсканируйте один товар. Проверьте ответ Ozon; товар подтверждает сотрудник.
 
-**Установка обновления выполняется вручную:** замените файлы в прежней папке, перезагрузите расширение на странице управления расширениями и вкладки Ozon. Удалять установку перед обновлением не нужно.
+EN: Disable the previous converter extension. Connect the scanner, clear and focus Ozon's marking-code field, and scan one item. Check Ozon's response; an employee confirms the item manually.
 
-Для 1.2.0 или ранее сохранённого другого адреса откройте настройки обновлений, вставьте адрес ниже и нажмите «Сохранить адрес»:
+### Automatic connection / Автоматическое подключение
 
-```text
-https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/updates.json
-```
+RU: USB/HID и доступные COM-порты обнаруживаются автоматически. Для COM подбирается скорость из набора 1200–115200 бод, формат 8N1 без управления потоком. Первое определение может потребовать нескольких сканирований. Успешные параметры запоминаются. Доступные COM-порты открываются для чтения; команды устройствам не отправляются.
 
-Пустой сохранённый адрес отключает проверки. Равная установленной версия не вызывает уведомления. [Инструкция администратору](update-channel/НАСТРОЙКА_ОБНОВЛЕНИЙ.txt).
+EN: USB/HID and available COM ports are discovered automatically. COM detection tries supported rates between 1200 and 115200 baud, using 8N1 without flow control. Several scans may be needed for initial detection. Successful parameters are remembered. Available COM ports are opened for reading; no commands are sent to devices.
 
-## Формат и ограничения
+RU: При распознавании начала маркировки запрашивается ENG и выключается Caps Lock. Bluetooth поддерживается через базу либо как уже сопряжённая в Windows клавиатура / COM. Закрытые протоколы, установка драйверов и сопряжение Bluetooth не выполняются программой.
 
-Поддерживается длинный формат с GTIN из 14 цифр, серийным номером из 13 знаков, ключом проверки из 4 знаков и проверочной частью из 44 знаков. Расширение приводит разделители к виду, принятому в проверенном сценарии Ozon; буквы и регистр не исправляет, пропущенные символы не восстанавливает. Это не проверка подлинности или статуса в «Честном ЗНАКе». Ответ проверяет Ozon.
+EN: When a marking-code prefix is recognized, the application requests English input and switches Caps Lock off. Bluetooth is supported through the scanner base or an already paired Windows keyboard/COM interface. Proprietary protocols, driver installation, and Bluetooth pairing are outside the application's scope.
 
-Коды обрабатываются локально; история кодов не сохраняется. Проверка версии обращается к GitHub без кодов маркировки и данных заказов. Установка в браузере склада и сканирование физическим сканером требуют проверки на рабочем месте.
+### Updates / Обновления
 
-[Подробная инструкция](ozon-extension/ИНСТРУКЦИЯ.txt) · [Сведения о текущем выпуске](updates.json)
+RU: Начиная с 1.2.0 программа проверяет GitHub после запуска и каждые 6 часов. Сотрудник нажимает «Обновить»; программа скачивает и проверяет установщик, закрывается, обновляется и запускается в трее. Переход с 1.1.0 требует одной ручной установки. У сборки пока нет цифровой подписи Windows.
 
+EN: Since 1.2.0, the application checks GitHub after startup and every six hours. An employee clicks Update; the application downloads and verifies the installer, exits, updates, and restarts in the tray. Upgrading from 1.1.0 requires one manual installation. The build does not yet carry a Windows digital signature.
 
-## Программа для Windows — 1.2.0 · by PEI
+[Windows instructions / Инструкция Windows](src/windows/README-installed.txt) · [Publishing updates / Выпуск обновлений](windows/ВЫПУСК_ОБНОВЛЕНИЙ.txt) · [Release workflow / Форма выпуска](https://github.com/ozonopm-crypto/ozon-marking-converter/actions/workflows/windows-release.yml)
 
-[Скачать установщик Windows](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.0.exe)
+## Browser extension 1.2.2 / Расширение браузера 1.2.2
 
-Windows 10/11 x64, .NET Framework 4.8. Установка для текущего пользователя, ярлыки на рабочем столе и в меню «Пуск», работа в трее. Автозапуск выбран по умолчанию; обработка включена при первой установке.
+[Download extension ZIP / Скачать ZIP расширения](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/ozon-extension-1.2.2.zip)
 
-USB/HID и доступные COM-порты обнаруживаются автоматически. Для COM подбирается скорость 1200–115200 из поддерживаемого набора, формат 8N1; при первом определении может потребоваться несколько сканирований. Параметры запоминаются. Bluetooth работает через базу или как уже сопряжённая в Windows клавиатура / COM.
+RU: Отдельное расширение для Яндекс Браузера, Chrome, Edge и Opera на компьютере. Распакуйте ZIP в постоянную папку. На странице browser://extensions, chrome://extensions, edge://extensions или opera://extensions включите режим разработчика и загрузите папку ozon-extension с manifest.json. Разрешите доступ к seller.ozon.ru и обновите вкладки Ozon.
 
-При распознавании начала маркировки запрашивается ENG и выключается Caps Lock. Программа разбирает клавиши сканера по английской раскладке, проверяя фактически введённый текст перед заменой. Обычный ввод текста не переключает язык.
+EN: A separate desktop extension for Yandex Browser, Chrome, Edge, and Opera. Extract the ZIP into a permanent folder. Open browser://extensions, chrome://extensions, edge://extensions, or opera://extensions, enable developer mode, and load the ozon-extension folder containing manifest.json. Allow access to seller.ozon.ru and reload Ozon tabs.
 
-Обновления проверяются после запуска и каждые 6 часов. Сотрудник нажимает «Обновить» в программе; скачивание и запуск установщика выполняются автоматически. Размер и SHA256 проверяются. Коды и данные заказов в интернет не передаются. Первая установка 1.2.0 выполняется вручную: в 1.1.0 интернет-обновлений нет.
+RU: **Для расширения нужна раскладка ENG и выключенный Caps Lock.** Яндекс Браузер может отключать распакованное расширение после перезапуска; оно не может включить себя самостоятельно. Эта ZIP-сборка уведомляет об обновлении, но её файлы заменяются вручную. Не используйте расширение одновременно с Windows-программой.
 
-[Инструкция пользователю](src/windows/README-installed.txt) · [Как выпускать обновления](windows/ВЫПУСК_ОБНОВЛЕНИЙ.txt) · [Выпустить Windows-версию](https://github.com/ozonopm-crypto/ozon-marking-converter/actions/workflows/windows-release.yml)
+EN: **The extension requires English input and Caps Lock off.** Yandex Browser may disable unpacked extensions after a restart; an extension cannot re-enable itself. This ZIP distribution provides update notifications, but its files must be replaced manually. Do not run the extension alongside the Windows application.
 
-Программа и расширение — отдельные продукты. При использовании программы отключите прежнее расширение. Поле браузера должно разрешать чтение через Windows UI Automation; COM вставляет только в пустое поле. Поддерживается указанный выше длинный формат маркировки. Устройства с закрытым протоколом и сопряжение Bluetooth требуют средств производителя / Windows. Сборка без цифровой подписи. Проверка физического АТОЛ SB3100 BT и реального товара на складе обязательна перед массовой работой.
+[Extension instructions / Инструкция расширения](ozon-extension/ИНСТРУКЦИЯ.txt) · [Extension update channel / Канал обновлений расширения](update-channel/НАСТРОЙКА_ОБНОВЛЕНИЙ.txt)
+
+## Format and privacy / Формат и данные
+
+RU: Поддерживается длинный формат: GTIN 14 цифр, серийный номер 13 знаков, ключ 4 знака и проверочная часть 44 знака с '=' в конце. Неподдерживаемые форматы не исправляются. Коды обрабатываются локально, их история не сохраняется и в GitHub не отправляется. GitHub используется только для проверки версии и скачивания обновлений.
+
+EN: The supported long format contains a 14-digit GTIN, a 13-character serial number, a four-character key, and a 44-character verification block ending in '='. Unsupported formats are not repaired. Codes are processed locally, are not logged, and are not sent to GitHub. GitHub is used only for version checks and update downloads.
+
+RU: Программа изменяет только проверенное активное поле поддерживаемого браузера. COM заполняет только пустое поле. При доступе через MSAA уже введённый текст должен полностью совпадать со сканом. Если поле недоступно, фокус изменился или результат не подтверждён, программа сообщает об отказе. Успех записи не означает, что Ozon принял код.
+
+EN: The application changes only a verified focused field in a supported browser. COM input requires an empty field. With MSAA, the entire existing value must match the scan. Unavailable fields, focus changes, and unverified results produce a failure message. A successful field write does not mean Ozon accepted the code.
+
+[Development and verification / Разработка и проверки](docs/DEVELOPMENT.md) · [Changelog / История изменений](CHANGELOG.md)

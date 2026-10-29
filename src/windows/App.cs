@@ -13,8 +13,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("Локальная подготовка разделителей кода маркировки")]
 [assembly: AssemblyCompany("by PEI")]
 [assembly: AssemblyCopyright("by PEI")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.2.1.0")]
+[assembly: AssemblyFileVersion("1.2.1.0")]
 
 namespace OzonMarkingDesktop
 {
@@ -71,6 +71,7 @@ namespace OzonMarkingDesktop
     {
         private readonly Preferences preferences;
         private readonly bool background;
+        private readonly bool browserVerification;
         private ScannerHook scanner;
         private NotifyIcon tray;
         private Button toggle;
@@ -96,10 +97,11 @@ namespace OzonMarkingDesktop
         private readonly Color ink = Color.FromArgb(23, 35, 55);
         private readonly Color muted = Color.FromArgb(82, 97, 119);
         private readonly Color blue = Color.FromArgb(23, 92, 211);
-        public MainWindow(Preferences settings, bool startBackground)
+        public MainWindow(Preferences settings, bool startBackground, bool verifyBrowser = false)
         {
+            browserVerification = verifyBrowser;
             preferences = settings; background = startBackground;
-            Text = "Преобразователь кода для Ozon — Windows";
+            Text = "Преобразователь кода для Ozon — Windows" + (verifyBrowser ? " [Проверка браузера]" : "");
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(780, 730);
             MinimumSize = new Size(740, 720);
@@ -118,7 +120,7 @@ namespace OzonMarkingDesktop
             Controls.Add(root);
             Panel header = new Panel { Dock = DockStyle.Fill };
             Label title = LabelAt("Преобразователь кода для Ozon", 0, 0, 710, 35, 20, true);
-            Label subtitle = LabelAt("Windows 1.2.0 · by PEI · USB/HID, COM и Bluetooth через Windows", 1, 42, 710, 25, 10, false);
+            Label subtitle = LabelAt("Windows 1.2.1 · by PEI · USB/HID, COM и Bluetooth через Windows", 1, 42, 710, 25, 10, false);
             subtitle.ForeColor = muted; header.Controls.Add(title); header.Controls.Add(subtitle); root.Controls.Add(header, 0, 0);
 
             FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Padding = new Padding(0, 1, 0, 0) };
@@ -201,6 +203,16 @@ namespace OzonMarkingDesktop
             testOutput = new TextBox { Left = 17, Top = 242, Width = 680, Height = 76, ReadOnly = true, Multiline = true, Font = new Font("Consolas", 11), AccessibleName = "Результат преобразования", Anchor = hint.Anchor };
             page.Controls.Add(testOutput);
             testStatus = LabelAt("Ожидаю тестовый скан. Пример не относится к реальному товару.", 17, 332, 680, 68, 10, false); testStatus.Anchor = hint.Anchor; page.Controls.Add(testStatus);
+            testStatus.Top = 375; testStatus.Height = 30;
+            Button browserCheck = ButtonOf("Тест в браузере", 200, false); browserCheck.Left = 17; browserCheck.Top = 332; browserCheck.Height = 34;
+            browserCheck.Click += delegate
+            {
+                if (scanner == null || !scanner.Enabled) { SetStatus("Сначала включите обработку.", true); return; }
+                SetStatus("За 5 секунд перейдите в браузер и нажмите на поле с искусственным примером PEI. Настоящие коды этот тест не заменяет.", false);
+                System.Windows.Forms.Timer wait = new System.Windows.Forms.Timer { Interval = 5000 };
+                wait.Tick += delegate { wait.Stop(); wait.Dispose(); if (!closing && scanner != null) scanner.TestBrowserReplacement(Native.GetForegroundWindow()); };
+                wait.Start();
+            }; page.Controls.Add(browserCheck);
         }
         private void BuildOptions(TabPage page)
         {
@@ -219,22 +231,25 @@ namespace OzonMarkingDesktop
                 }
             };
             page.Controls.Add(startup);
-            Label note = LabelAt("Параметры подключения подбираются автоматически. Выбирать USB, COM, номер порта или скорость не требуется.\r\n\r\nПоддерживаемая структура: GTIN 14 цифр, серийный номер 13 знаков, ключ 4 знака, проверочная часть 44 знака. Другие форматы программа не меняет.\r\n\r\nКоды обрабатываются локально и не передаются в интернет. Сохраняются настройки и найденные параметры COM. GitHub используется только для обновления программы.\r\n\r\nВерсия для Windows: 1.2.0\r\nby PEI", 17, 90, 680, 300, 10, false);
+            Label note = LabelAt("Параметры подключения подбираются автоматически. Выбирать USB, COM, номер порта или скорость не требуется.\r\n\r\nПоддерживаемая структура: GTIN 14 цифр, серийный номер 13 знаков, ключ 4 знака, проверочная часть 44 знака. Другие форматы программа не меняет.\r\n\r\nКоды обрабатываются локально и не передаются в интернет. Сохраняются настройки и найденные параметры COM. GitHub используется только для обновления программы.\r\n\r\nВерсия для Windows: 1.2.1\r\nby PEI", 17, 90, 680, 300, 10, false);
             note.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right; note.ForeColor = muted; page.Controls.Add(note);
         }
         private void Loaded(object sender, EventArgs args)
         {
             try
             {
-                scanner = new ScannerHook(delegate { return testAuto.Checked && testInput.Focused; });
+                scanner = new ScannerHook(delegate { return testAuto.Checked && testInput.Focused; }, !browserVerification);
                 scanner.SetTiming(500, 650);
                 scanner.Status += SetStatus;
                 scanner.Converted += delegate(string prepared, bool serial) { OnUi(delegate { count++; if (devices != null && !serial) devices.ScanSucceeded(); countLabel.Text = "Исправлено за этот запуск: " + count.ToString() + ". История кодов не сохраняется."; if (testInput.Focused) { testOutput.Text = prepared; testStatus.Text = "Автозамена Windows выполнена. Теперь проверьте реальный сканер в этом поле."; } }); };
                 scanner.FailedInput += delegate { OnUi(delegate { SetEnabled(false); }); };
+                if (!browserVerification)
+                {
                 devices = new DeviceMonitor(scanner, preferences.Rates);
                 devices.DevicesChanged += delegate(ScannerDevice[] list) { OnUi(delegate { ShowDevices(list); }); };
                 devices.Connection += delegate(string text) { OnUi(delegate { connection.Text = text; }); };
                 devices.Learned += delegate(string key, int speed) { OnUi(delegate { preferences.Rates[key] = speed; preferences.Save(); }); };
+                }
                 SetEnabled(preferences.Enabled);
                 SystemEvents.PowerModeChanged += PowerChanged;
             }
@@ -268,7 +283,7 @@ namespace OzonMarkingDesktop
         private void BuildUpdates(TabPage page)
         {
             page.Controls.Add(LabelAt("Обновление программы", 17, 20, 680, 35, 16, true));
-            updateStatus = LabelAt("Установлена версия 1.2.0. Проверяю наличие новых версий после запуска и каждые 6 часов. Интернет нужен только для обновлений.", 17, 70, 680, 170, 11, false); page.Controls.Add(updateStatus);
+            updateStatus = LabelAt("Установлена версия 1.2.1. Проверяю наличие новых версий после запуска и каждые 6 часов. Интернет нужен только для обновлений.", 17, 70, 680, 170, 11, false); page.Controls.Add(updateStatus);
             updateButton = ButtonOf("Проверить обновления", 270, true); updateButton.Left = 17; updateButton.Top = 250;
             updateButton.Click += delegate { if (availableUpdate == null) CheckUpdate(true); else InstallUpdate(); }; page.Controls.Add(updateButton);
             page.Controls.Add(LabelAt("Когда появится новая версия, здесь будет кнопка «Обновить». Программа сама скачает установщик, закроется и запустится после установки. Настройки и ярлыки сохранятся. Скачивать файлы вручную не требуется.\r\n\r\nИсточник: GitHub · ozonopm-crypto/ozon-marking-converter\r\nby PEI", 17, 310, 680, 115, 10, false));
@@ -286,7 +301,7 @@ namespace OzonMarkingDesktop
                     {
                         availableUpdate = UpdatePolicy.Newer(release.version, typeof(MainWindow).Assembly.GetName().Version) ? release : null;
                         updateButton.Text = availableUpdate == null ? "Проверить обновления" : "Обновить до " + release.version;
-                        updateStatus.Text = availableUpdate == null ? "Установлена актуальная версия 1.2.0. Проверено: " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") : "Доступна версия " + release.version + ".\r\n\r\n" + release.notes;
+                        updateStatus.Text = availableUpdate == null ? "Установлена актуальная версия 1.2.1. Проверено: " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") : "Доступна версия " + release.version + ".\r\n\r\n" + release.notes;
                         if (availableUpdate != null) { tray.BalloonTipTitle = "Доступно обновление " + release.version; tray.BalloonTipText = "Откройте программу → Обновления → Обновить."; tray.ShowBalloonTip(8000); }
                     });
                 }
@@ -342,7 +357,8 @@ namespace OzonMarkingDesktop
         {
             if (args.Length > 0 && args[0] == "--apply-update") { Updates.Apply(args); return; }
             bool created;
-            using (Mutex single = new Mutex(true, @"Local\OzonMarkingDesktop-1", out created))
+            bool verifyBrowser = Array.IndexOf(args, "--verify-browser") >= 0;
+            using (Mutex single = new Mutex(true, @"Local\OzonMarkingDesktop-1" + (verifyBrowser ? ".BrowserVerification" : ""), out created))
             {
                 if (!created) { MessageBox.Show("Программа уже запущена. Откройте значок красного сканера рядом с часами Windows.", "Преобразователь кода для Ozon"); return; }
                 Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
@@ -353,7 +369,7 @@ namespace OzonMarkingDesktop
                     if (args[i] == "--background") background = true;
                     if (args[i] == "--settings-dir" && i + 1 < args.Length) directory = Path.GetFullPath(args[++i]);
                 }
-                Application.Run(new MainWindow(new Preferences(directory), background));
+                Application.Run(new MainWindow(new Preferences(directory), background, verifyBrowser));
                 single.ReleaseMutex();
             }
         }

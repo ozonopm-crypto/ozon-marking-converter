@@ -31,3 +31,34 @@
 Для отключения проверки сохраните пустой адрес. При недоступности GitHub
 преобразование кодов продолжает работать локально. Репозиторий должен
 оставаться публичным: приватный адрес требует другого механизма доступа.
+
+
+
+ENGLISH — EXTENSION UPDATE CHANNEL
+by PEI
+
+Repository:
+https://github.com/ozonopm-crypto/ozon-marking-converter
+Feed:
+https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/updates.json
+
+A fresh 1.2.2 install includes the feed. If a blank or custom URL was saved,
+enter this URL in the extension's update settings and save it.
+Check for updates should report no newer version on 1.2.2. An older
+version using the same feed should offer 1.2.2 and its ZIP download.
+
+TO RELEASE AN EXTENSION UPDATE
+1. Increase manifest.json version, test, and create the ZIP.
+2. Upload a new versioned ZIP into downloads. Keep old archives unchanged.
+3. Update version, download_url and bilingual notes in the root updates.json
+   and its update-channel copy. The number must match manifest.json in
+   the ZIP. Publish the ZIP before its metadata, or publish atomically.
+4. Verify public URLs without signing in and check from an older extension.
+
+Staff receive a NEW badge and download link after startup or a periodic
+check. Files are replaced manually in the existing installation folder,
+then the extension and Ozon tabs are reloaded. Do not remove the installed
+extension to upgrade it. Saving an empty feed disables checks.
+The repository must remain public for this unauthenticated update channel.
+Offline code conversion continues when GitHub is unavailable.
+This feed is for the browser extension; Windows uses windows-updates.json.

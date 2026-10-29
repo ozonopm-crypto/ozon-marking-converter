@@ -16,7 +16,8 @@ foreach ($file in @('OzonMarkingConverter.exe.config','scanner.ico','Инстр�
     if (-not (Test-Path -LiteralPath (Join-Path $testDirectory $file))) { throw ('Missing installed file: ' + $file) }
 }
 $entry = Get-ItemProperty -LiteralPath $testRegistry
-if ($entry.Publisher -ne 'by PEI' -or $entry.DisplayVersion -ne '1.2.0') { throw 'Incorrect uninstall metadata.' }
+$expectedVersion = [regex]::Match([IO.File]::ReadAllText((Join-Path $workspace 'src\windows\installer.iss')), '#define ProductVersion "([^"]+)"').Groups[1].Value
+if ($entry.Publisher -ne 'by PEI' -or $entry.DisplayVersion -ne $expectedVersion) { throw 'Incorrect uninstall metadata.' }
 $shell = New-Object -ComObject WScript.Shell
 $shortcuts = @(
     (Join-Path $testDirectory '_test_shortcuts\Desktop\Преобразователь кода для Ozon.lnk'),

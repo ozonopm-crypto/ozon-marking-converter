@@ -1,7 +1,7 @@
 {
-  "version": "1.2.0",
-  "url": "https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.0.exe",
-  "sha256": "0fd83fdf44b37a0b635f50a39271de7b701c499e95cecf938ed74912156ffc11",
-  "size": 2123472,
-  "notes": "Автоматический поиск USB/HID и COM, подбор скорости COM, переподключение, автоматическая английская раскладка и выключение Caps Lock, обновление программы по кнопке."
+  "version": "1.2.1",
+  "url": "https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.1.exe",
+  "sha256": "aa7d5a95fa2c211138ae140c0a3483d02173368706327192f3b93dde1de473f5",
+  "size": 2127260,
+  "notes": "RU: Добавлены доступ к полю через MSAA и проверка результата записи. Требует проверки на реальном сканере и в Ozon. Документация RU/EN.\nEN: Added MSAA field access and post-write verification. Physical scanner and live Ozon validation are required. RU/EN documentation."
 }

@@ -8,7 +8,7 @@ $compiler = Join-Path $compilerRoot 'csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { throw '.NET Framework compiler not found.' }
 $outputFull = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $outputFull | Out-Null
-$references = @('System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Management.dll','System.Web.Extensions.dll')
+$references = @('System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Management.dll','System.Web.Extensions.dll','Accessibility.dll')
 $arguments = @('/nologo','/codepage:65001','/target:winexe','/platform:anycpu','/optimize+',('/out:' + (Join-Path $outputFull 'OzonMarkingConverter.exe')),('/win32manifest:' + (Join-Path $PSScriptRoot 'app.manifest')))
 $icon = Join-Path $PSScriptRoot 'scanner.ico'
 if (Test-Path -LiteralPath $icon) { $arguments += '/win32icon:' + $icon }

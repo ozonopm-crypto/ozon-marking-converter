@@ -68,6 +68,23 @@ namespace OzonMarkingDesktop
         public bool DirectInput;
     }
 
+    public sealed class ReplacementPlan
+    {
+        public string Expected;
+        public static ReplacementPlan Create(string field, ScanPacket packet, string prepared, bool wholeOnly)
+        {
+            if (!ScanBuffer.CanReplace(field, packet)) return null;
+            if (wholeOnly && !packet.DirectInput && field != packet.Typed) return null;
+            string prefix = packet.DirectInput ? "" : field.Substring(0, field.Length - packet.Typed.Length);
+            return new ReplacementPlan { Expected = prefix + prepared };
+        }
+        public bool Matches(string field)
+        {
+            // Ozon may decode escaped GS in its own state. A raw separator-free code is not success.
+            return field == Expected || field == Expected.Replace(MarkingCode.Marker, "\x1d");
+        }
+    }
+
     // Stores only a short candidate scan in RAM. No ordinary typing history is retained.
     public sealed class ScanBuffer
     {

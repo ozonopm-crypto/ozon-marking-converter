@@ -110,6 +110,15 @@ namespace OzonMarkingDesktop
             Input[] array = inputs.ToArray();
             return SendInput((uint)array.Length, array, Marshal.SizeOf(typeof(Input))) == array.Length;
         }
+        public static bool ReplaceWhole(string result)
+        {
+            List<Input> inputs = new List<Input>();
+            inputs.Add(Key(0x11, 0, 0)); inputs.Add(Key(0x41, 0, 0));
+            inputs.Add(Key(0x41, 0, 2)); inputs.Add(Key(0x11, 0, 2));
+            foreach (char ch in result) { inputs.Add(Key(0, ch, 4)); inputs.Add(Key(0, ch, 6)); }
+            Input[] array = inputs.ToArray();
+            return SendInput((uint)array.Length, array, Marshal.SizeOf(typeof(Input))) == array.Length;
+        }
     }
 
     internal sealed class FocusFrame
@@ -118,7 +127,18 @@ namespace OzonMarkingDesktop
         public string Identity;
         public string Value;
         public bool CaretAtEnd;
+        public bool WholeValueOnly;
+        public Accessibility.IAccessible LegacyObject;
+        public object LegacyChild;
         public static FocusFrame Read(bool ownTest)
+        {
+            if (Native.BrowserWindow(Native.GetForegroundWindow()))
+            {
+                try { FocusFrame legacy = LegacyFocus.Read(); if (legacy != null) return legacy; } catch { }
+            }
+            return ReadUia(ownTest);
+        }
+        private static FocusFrame ReadUia(bool ownTest)
         {
             UnavailableReason = "нет фокуса";
             AutomationElement element = AutomationElement.FocusedElement;
@@ -183,14 +203,16 @@ namespace OzonMarkingDesktop
         private long busySince;
         private long hookRenewed;
         private readonly SynchronizationContext context;
+        private readonly bool captureScans;
         public event Action<string, bool> Status;
         public event Action<string, bool> Converted;
         public event Action FailedInput;
         public long Generation { get { return Interlocked.Read(ref generation); } }
         public bool Enabled { get { return enabled; } set { enabled = value; Interlocked.Increment(ref generation); buffer.Reset(); } }
         private static long Now { get { return Stopwatch.GetTimestamp() * 1000L / Stopwatch.Frequency; } }
-        public ScannerHook(Func<bool> testFocus)
+        public ScannerHook(Func<bool> testFocus, bool capture = true)
         {
+            captureScans = capture;
             context = SynchronizationContext.Current;
             ownTestFocus = testFocus; callback = OnKey;
             handle = Native.SetWindowsHookEx(13, callback, Native.GetModuleHandle(null), 0);
@@ -214,7 +236,7 @@ namespace OzonMarkingDesktop
                 if (message.ToInt64() != 0x100 && message.ToInt64() != 0x104) return Next(code, message, data);
                 if (suppressed.Contains(key.Key)) return new IntPtr(1);
                 Interlocked.Increment(ref generation);
-                if (!enabled) return Next(code, message, data);
+                if (!enabled || !captureScans) return Next(code, message, data);
                 long now = Now;
                 IntPtr foreground = Native.GetForegroundWindow();
                 bool own = ownTestFocus() && Native.OwnWindow(foreground);
@@ -250,7 +272,7 @@ namespace OzonMarkingDesktop
             if (!enabled || disposed) return;
             if (busy)
             {
-                if (Now - busySince > 3000) { enabled = false; Action fail = FailedInput; if (fail != null) fail(); Report("Проверка поля не ответила вовремя. Обработка приостановлена. Перезапустите программу.", true); }
+                if (Now - busySince > 6000) { enabled = false; Action fail = FailedInput; if (fail != null) fail(); Report("Проверка поля не ответила вовремя. Обработка приостановлена. Перезапустите программу.", true); }
                 return;
             }
             ScanPacket packet = buffer.Poll(Now, Interlocked.Read(ref generation));
@@ -289,6 +311,11 @@ namespace OzonMarkingDesktop
             if (!enabled || busy || disposed) return;
             ProcessPacket(new ScanPacket { Raw = value, Typed = value, Window = window, AllowOwnTest = true, Generation = Interlocked.Read(ref generation) });
         }
+        public void TestBrowserReplacement(IntPtr window)
+        {
+            if (!enabled || busy || disposed || !Native.BrowserWindow(window)) return;
+            ProcessPacket(new ScanPacket { Raw = MarkingCode.DemoRaw, Typed = MarkingCode.DemoRaw, Window = window, Generation = Interlocked.Read(ref generation) });
+        }
         private void ProcessPacket(ScanPacket packet)
         {
             CodeResult result = MarkingCode.Normalize(packet.Raw);
@@ -301,18 +328,48 @@ namespace OzonMarkingDesktop
                 {
                     if (!Ready(packet)) { Report("Ввод или активное окно изменились. Код не заменён. Повторите сканирование.", true); return; }
                     FocusFrame first = FocusFrame.Read(packet.AllowOwnTest);
-                    if (first == null) { Report("Текстовое поле недоступно для проверки (" + FocusFrame.UnavailableReason + "). Код не изменён.", true); return; }
-                    if (!first.CaretAtEnd || !ScanBuffer.CanReplace(first.Value, packet)) { Report("Поле или положение курсора изменилось. Код не заменён. Очистите поле и повторите сканирование.", true); return; }
+                    for (int attempt = 0; first == null && attempt < 4 && Ready(packet); attempt++)
+                    { Thread.Sleep(100); first = FocusFrame.Read(packet.AllowOwnTest); }
+                    if (first == null) { Report("Браузер не предоставил доступ к активному полю. Нажмите на поле маркировки и повторите сканирование.", true); return; }
+                    ReplacementPlan plan = ReplacementPlan.Create(first.Value, packet, result.Code, first.WholeValueOnly);
+                    if (!first.CaretAtEnd || plan == null) { Report("Поле или положение курсора изменилось. Код не заменён. Очистите поле и повторите сканирование.", true); return; }
                     FocusFrame second = FocusFrame.Read(packet.AllowOwnTest);
                     if (second == null || second.Identity != first.Identity || second.Value != first.Value || !second.CaretAtEnd || !Ready(packet)) { Report("Во время проверки изменился ввод. Повторите сканирование.", true); return; }
                     if (Native.Down(0x10) || Native.Down(0x11) || Native.Down(0x12) || Native.Down(0x5b) || Native.Down(0x5c)) { Report("Отпустите клавиши-модификаторы и повторите сканирование.", true); return; }
-                    if (!Native.ReplaceTypedSuffix(packet.Typed.Length, result.Code))
+                    bool sent = false;
+                    if (second.LegacyObject != null)
+                    {
+                        try { second.LegacyObject.set_accValue(second.LegacyChild, plan.Expected); sent = true; }
+                        catch
+                        {
+                            FocusFrame unchanged = FocusFrame.Read(packet.AllowOwnTest);
+                            if (unchanged == null || unchanged.Identity != first.Identity || unchanged.Value != first.Value || !Ready(packet))
+                            { Report("Браузер не разрешил замену. Поле изменилось; автоматический повтор отменён.", true); return; }
+                        }
+                    }
+                    if (!sent) sent = first.WholeValueOnly ? Native.ReplaceWhole(plan.Expected) : Native.ReplaceTypedSuffix(packet.Typed.Length, result.Code);
+                    if (!sent)
                     {
                         enabled = false; Action fail = FailedInput; if (fail != null) fail();
                         Report("Windows не выполнила ввод полностью. Обработка остановлена. Проверьте поле вручную.", true); return;
                     }
+                    int stable = 0;
+                    long verifyUntil = Now + 1500;
+                    while (Now < verifyUntil && Ready(packet))
+                    {
+                        Thread.Sleep(80);
+                        FocusFrame actual = FocusFrame.Read(packet.AllowOwnTest);
+                        if (actual == null || actual.Identity != first.Identity) break;
+                        stable = plan.Matches(actual.Value) ? stable + 1 : 0;
+                        if (stable >= 3) break;
+                    }
+                    if (stable < 3 || !Ready(packet))
+                    {
+                        Report("Замена не подтверждена: браузер не сохранил разделители или фокус изменился. Проверьте поле и повторите сканирование.", true);
+                        return;
+                    }
                     Action<string, bool> callback = Converted; if (!disposed && callback != null) callback(result.Code, packet.DirectInput);
-                    Report("Разделители подготовлены. Проверьте ответ Ozon. Подтверждение выполняется вручную.", false);
+                    Report("Разделители записаны и проверены в поле. Проверьте ответ Ozon. Подтверждение — вручную.", false);
                 }
                 catch { Report("Не удалось проверить активное поле. Код не изменён. Повторите сканирование.", true); }
                 finally { busy = false; }
@@ -320,7 +377,7 @@ namespace OzonMarkingDesktop
         }
         private bool Ready(ScanPacket packet)
         {
-            return !disposed && enabled && Now - busySince < 2500 && packet.Window == Native.GetForegroundWindow() && packet.Generation == Interlocked.Read(ref generation);
+            return !disposed && enabled && Now - busySince < 5500 && packet.Window == Native.GetForegroundWindow() && packet.Generation == Interlocked.Read(ref generation);
         }
         public void Dispose()
         {

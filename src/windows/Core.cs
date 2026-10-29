@@ -71,12 +71,22 @@ namespace OzonMarkingDesktop
     public sealed class ReplacementPlan
     {
         public string Expected;
+        public bool ReplaceWhole;
         public static ReplacementPlan Create(string field, ScanPacket packet, string prepared, bool wholeOnly)
         {
+            if (packet == null || field == null) return null;
+            // RU: Сверяем весь код, если браузер уже преобразовал GS или поток клавиш
+            // перевёл символы иначе. Регистр и содержимое кода должны совпасть точно.
+            // EN: Full-value equivalence tolerates only known separator representations.
+            if (!packet.DirectInput)
+            {
+                CodeResult visible = MarkingCode.Normalize(field);
+                if (visible.Ok && visible.Code == prepared) return new ReplacementPlan { Expected = prepared, ReplaceWhole = true };
+            }
             if (!ScanBuffer.CanReplace(field, packet)) return null;
             if (wholeOnly && !packet.DirectInput && field != packet.Typed) return null;
             string prefix = packet.DirectInput ? "" : field.Substring(0, field.Length - packet.Typed.Length);
-            return new ReplacementPlan { Expected = prefix + prepared };
+            return new ReplacementPlan { Expected = prefix + prepared, ReplaceWhole = wholeOnly || field == packet.Typed || packet.DirectInput };
         }
         public bool Matches(string field)
         {
@@ -93,13 +103,14 @@ namespace OzonMarkingDesktop
         private long last;
         private IntPtr window;
         private bool ownTest;
+        private bool terminated;
         private long suffixUntil;
         private IntPtr suffixWindow;
         public int GapMilliseconds = 220;
         public int IdleMilliseconds = 260;
         public bool HasCandidate { get { return raw.Length != 0; } }
         public string Candidate { get { return raw.ToString(); } }
-        public void Clear() { raw.Clear(); typed.Clear(); window = IntPtr.Zero; last = 0; }
+        public void Clear() { raw.Clear(); typed.Clear(); window = IntPtr.Zero; last = 0; terminated = false; }
         public void Reset() { Clear(); suffixUntil = 0; suffixWindow = IntPtr.Zero; }
         public void Character(char value, long now, IntPtr foreground, bool allowOwnTest)
         {
@@ -129,18 +140,21 @@ namespace OzonMarkingDesktop
             }
             if ((key == "Enter" || key == "Tab") && MarkingCode.LooksLikeCode(value))
             {
-                last = now; return true;
+                last = now; terminated = true; return true;
             }
             Clear(); return false;
         }
         public ScanPacket Poll(long now, long generation)
         {
-            if (raw.Length == 0 || now - last < IdleMilliseconds) return null;
+            if (raw.Length == 0) return null;
+            bool complete = raw.Length >= 83 && raw[raw.Length - 1] == '=' && MarkingCode.Normalize(raw.ToString()).Ok;
+            int wait = terminated || complete ? 35 : IdleMilliseconds;
+            if (now - last < wait) return null;
             ScanPacket packet = new ScanPacket { Raw = raw.ToString(), Typed = typed.ToString(), Window = window, AllowOwnTest = ownTest, Generation = generation };
             Clear();
             if (MarkingCode.LooksLikeCode(packet.Raw))
             {
-                suffixUntil = now + 700; suffixWindow = packet.Window;
+                suffixUntil = now + 180; suffixWindow = packet.Window;
             }
             return packet;
         }

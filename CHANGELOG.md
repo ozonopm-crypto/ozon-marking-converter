@@ -1,5 +1,27 @@
 # Changelog / История изменений
 
+## Windows 1.2.2 — validation build / сборка для проверки
+
+RU:
+- Полностью полученный код больше не ждёт 650 мс; остаётся короткая пауза отпускания клавиши.
+- Подготовка раскладки и Caps Lock перенесена за пределы обработчика клавиш и выполняется после скана.
+- Убраны повторное чтение имени HID на каждом символе, опрос WMI каждые пять секунд и обновление неизменившегося списка.
+- Подключение/отключение отслеживается событиями, резервная проверка выполняется раз в минуту.
+- Не открываются посторонние COM-порты; без входящих данных скорость не переключается.
+- Точное совпадение всего кода допускает замену поля целиком без зависимости от сообщения браузера о курсоре.
+- UIA используется первым; MSAA включается только при необходимости. Во время одной замены способ чтения не меняется.
+- Физический сканер и реальный Ozon требуют проверки; сквозной тест в браузере не подтверждён.
+
+EN:
+- Complete scans no longer wait 650 ms; only a short key-release delay remains.
+- Layout and Caps Lock preparation runs after the scan, outside the keyboard callback.
+- Removed per-character HID name queries, five-second WMI polling, and unchanged-list redraws.
+- Device events trigger discovery, with a one-minute fallback refresh.
+- Unrelated COM ports remain unopened, and idle ports do not switch baud rates.
+- An exact whole-code match supports full-field replacement without depending on browser caret reporting.
+- UIA is preferred; MSAA is used only when needed. Verification keeps the same reader throughout a replacement.
+- Physical scanner and live Ozon validation are still required; end-to-end browser verification is unconfirmed.
+
 ## Windows 1.2.1 — validation build / сборка для проверки
 
 RU:

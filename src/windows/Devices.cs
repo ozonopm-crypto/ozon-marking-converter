@@ -15,10 +15,14 @@ namespace OzonMarkingDesktop
         [StructLayout(LayoutKind.Sequential)] private struct Registration { public ushort Page, Usage; public uint Flags; public IntPtr Window; }
         [StructLayout(LayoutKind.Sequential)] private struct DeviceEntry { public IntPtr Device; public uint Type; }
         [StructLayout(LayoutKind.Sequential)] private struct Header { public uint Type, Size; public IntPtr Device, Param; }
+        [StructLayout(LayoutKind.Sequential)] private struct DeviceInterface { public int Size, Type, Reserved; public Guid Class; public ushort Name; }
         [DllImport("user32.dll", SetLastError = true)] private static extern bool RegisterRawInputDevices(Registration[] devices, uint count, uint size);
         [DllImport("user32.dll")] private static extern uint GetRawInputDeviceList([Out] DeviceEntry[] list, ref uint count, uint size);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern uint GetRawInputDeviceInfo(IntPtr device, uint command, StringBuilder data, ref uint size);
         [DllImport("user32.dll")] private static extern uint GetRawInputData(IntPtr input, uint command, IntPtr data, ref uint size, uint headerSize);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr RegisterDeviceNotification(IntPtr window, ref DeviceInterface filter, uint flags);
+        [DllImport("user32.dll")] private static extern bool UnregisterDeviceNotification(IntPtr registration);
+        private IntPtr serialNotifications, lastDevice;
         public event Action Changed;
         public string LastPath = "";
         public bool Available;
@@ -26,6 +30,8 @@ namespace OzonMarkingDesktop
         {
             CreateHandle(new CreateParams { Caption = "PEI scanner device monitor", Parent = new IntPtr(-3) });
             Available = RegisterRawInputDevices(new Registration[] { new Registration { Page = 1, Usage = 6, Flags = 0x2100, Window = Handle } }, 1, (uint)Marshal.SizeOf(typeof(Registration)));
+            DeviceInterface filter = new DeviceInterface { Size = Marshal.SizeOf(typeof(DeviceInterface)), Type = 5, Class = new Guid("86E0D1E0-8089-11D0-9CE4-08003E301F73") };
+            serialNotifications = RegisterDeviceNotification(Handle, ref filter, 0);
         }
         private static string PathOf(IntPtr device)
         {
@@ -52,7 +58,11 @@ namespace OzonMarkingDesktop
         }
         protected override void WndProc(ref Message message)
         {
-            if (message.Msg == 0xfe) { Action action = Changed; if (action != null) action(); }
+            if (message.Msg == 0xfe || message.Msg == 0x219)
+            {
+                lastDevice = IntPtr.Zero;
+                Action action = Changed; if (action != null) action();
+            }
             if (message.Msg == 0xff)
             {
                 uint size = (uint)Marshal.SizeOf(typeof(Header));
@@ -62,7 +72,8 @@ namespace OzonMarkingDesktop
                     if (GetRawInputData(message.LParam, 0x10000005, data, ref size, size) != UInt32.MaxValue)
                     {
                         Header header = (Header)Marshal.PtrToStructure(data, typeof(Header));
-                        if (header.Type == 1 && header.Device != IntPtr.Zero) LastPath = PathOf(header.Device);
+                        if (header.Type == 1 && header.Device != IntPtr.Zero && header.Device != lastDevice)
+                        { lastDevice = header.Device; LastPath = PathOf(header.Device); }
                     }
                 }
                 finally { Marshal.FreeHGlobal(data); }
@@ -72,6 +83,7 @@ namespace OzonMarkingDesktop
         public void Dispose()
         {
             if (Available) RegisterRawInputDevices(new Registration[] { new Registration { Page = 1, Usage = 6, Flags = 1, Window = IntPtr.Zero } }, 1, (uint)Marshal.SizeOf(typeof(Registration)));
+            if (serialNotifications != IntPtr.Zero) UnregisterDeviceNotification(serialNotifications);
             DestroyHandle();
         }
     }
@@ -145,8 +157,12 @@ namespace OzonMarkingDesktop
                     }
                     catch { /* USB input and named COM selection remain available without WMI. */ }
                     foreach (ScannerDevice device in ports.Values) found.Add(device);
-                    devices = found.ToArray();
-                    Action<ScannerDevice[]> action = DevicesChanged; if (!disposed && action != null) action(devices);
+                    ScannerDevice[] updated = found.ToArray();
+                    bool changed = updated.Length != devices.Length;
+                    for (int i = 0; !changed && i < updated.Length; i++)
+                        changed = updated[i].Id != devices[i].Id || updated[i].Name != devices[i].Name || updated[i].Port != devices[i].Port;
+                    devices = updated;
+                    Action<ScannerDevice[]> action = DevicesChanged; if (changed && !disposed && action != null) action(devices);
                 }
                 catch { Emit("Не удалось прочитать список устройств. Поиск будет повторён автоматически."); }
                 finally { Interlocked.Exchange(ref nextDiscovery, DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond); Interlocked.Exchange(ref discovering, 0); }
@@ -158,7 +174,7 @@ namespace OzonMarkingDesktop
             try
             {
                 long now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
-                if (refresh == 1 || now - Interlocked.Read(ref nextDiscovery) > 5000) Discover();
+                if (refresh == 1 || now - Interlocked.Read(ref nextDiscovery) > 60000) Discover();
                 List<AutoSerialChannel> removed = new List<AutoSerialChannel>();
                 lock (gate)
                 {
@@ -167,7 +183,7 @@ namespace OzonMarkingDesktop
                     if (active)
                         foreach (ScannerDevice device in devices)
                         {
-                            if (device.Keyboard) continue;
+                            if (!DevicePolicy.ShouldOpenSerial(device, rates)) continue;
                             string channelKey = device.Port + "|" + device.Id;
                             live.Add(channelKey);
                             if (channels.ContainsKey(channelKey)) continue;
@@ -185,7 +201,7 @@ namespace OzonMarkingDesktop
                 }
                 foreach (AutoSerialChannel channel in removed) channel.Dispose();
                 if (!active) Emit("Обработка на паузе. Устройства отслеживаются.");
-                else if (channels.Count == 0) Emit("USB/HID готов. COM-устройств пока нет. Поиск выполняется автоматически.");
+                else if (channels.Count == 0) Emit("USB/HID готов. Подтверждённые COM-сканеры не обнаружены. Остальные порты не открываются.");
             }
             finally { Interlocked.Exchange(ref working, 0); }
         }

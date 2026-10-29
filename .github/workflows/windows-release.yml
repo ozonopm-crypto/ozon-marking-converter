@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version / Версия, например 1.2.2'
+        description: 'Version / Версия, например 1.2.3'
         required: true
         type: string
       notes_ru:

@@ -1,7 +1,7 @@
 {
-  "version": "1.2.1",
-  "url": "https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.1.exe",
-  "sha256": "aa7d5a95fa2c211138ae140c0a3483d02173368706327192f3b93dde1de473f5",
-  "size": 2127260,
-  "notes": "RU: Добавлены доступ к полю через MSAA и проверка результата записи. Требует проверки на реальном сканере и в Ozon. Документация RU/EN.\nEN: Added MSAA field access and post-write verification. Physical scanner and live Ozon validation are required. RU/EN documentation."
+  "version": "1.2.2",
+  "url": "https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.2.exe",
+  "sha256": "4ce09a6fb449b8aea19d232b9b0242cc9be7f91b3d9d1dc4db522a86a08c56ac",
+  "size": 2127909,
+  "notes": "RU: Уменьшены задержки скана, убран постоянный перебор COM без данных, раскладка переключается после скана. Исправлена проверка полного кода без зависимости от курсора. Требуется проверка на рабочем месте.\nEN: Reduced scan delays, stopped idle COM probing, moved layout preparation after scanning, and removed caret dependency for exact full-code replacement. Workplace validation is required."
 }

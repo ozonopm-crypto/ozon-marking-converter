@@ -44,6 +44,10 @@ namespace OzonMarkingDesktop
             return TranslateWithLayout(key, window, false);
         }
         private static IntPtr englishLayout;
+        public static void InitializeScannerKeyboard()
+        {
+            if (englishLayout == IntPtr.Zero) englishLayout = LoadKeyboardLayout("00000409", 0);
+        }
         public static char TranslateScanner(KeyboardData key, IntPtr window)
         {
             return TranslateWithLayout(key, window, true);
@@ -132,11 +136,16 @@ namespace OzonMarkingDesktop
         public object LegacyChild;
         public static FocusFrame Read(bool ownTest)
         {
+            try { FocusFrame uia = ReadUia(ownTest); if (uia != null) return uia; } catch { }
             if (Native.BrowserWindow(Native.GetForegroundWindow()))
             {
                 try { FocusFrame legacy = LegacyFocus.Read(); if (legacy != null) return legacy; } catch { }
             }
-            return ReadUia(ownTest);
+            return null;
+        }
+        public static FocusFrame ReadLike(FocusFrame previous, bool ownTest)
+        {
+            return previous.LegacyObject != null ? LegacyFocus.Read() : ReadUia(ownTest);
         }
         private static FocusFrame ReadUia(bool ownTest)
         {
@@ -213,6 +222,7 @@ namespace OzonMarkingDesktop
         public ScannerHook(Func<bool> testFocus, bool capture = true)
         {
             captureScans = capture;
+            Native.InitializeScannerKeyboard();
             context = SynchronizationContext.Current;
             ownTestFocus = testFocus; callback = OnKey;
             handle = Native.SetWindowsHookEx(13, callback, Native.GetModuleHandle(null), 0);
@@ -235,8 +245,7 @@ namespace OzonMarkingDesktop
                 if (up) { if (suppressed.Remove(key.Key)) return new IntPtr(1); return Next(code, message, data); }
                 if (message.ToInt64() != 0x100 && message.ToInt64() != 0x104) return Next(code, message, data);
                 if (suppressed.Contains(key.Key)) return new IntPtr(1);
-                Interlocked.Increment(ref generation);
-                if (!enabled || !captureScans) return Next(code, message, data);
+                if (!enabled || !captureScans) { Interlocked.Increment(ref generation); return Next(code, message, data); }
                 long now = Now;
                 IntPtr foreground = Native.GetForegroundWindow();
                 bool own = ownTestFocus() && Native.OwnWindow(foreground);
@@ -244,15 +253,17 @@ namespace OzonMarkingDesktop
                 {
                     cachedWindow = foreground; cachedBrowser = Native.BrowserWindow(foreground); cachedAt = now;
                 }
-                if (!cachedBrowser && !own) { buffer.Reset(); return Next(code, message, data); }
+                if (!cachedBrowser && !own) { Interlocked.Increment(ref generation); buffer.Reset(); return Next(code, message, data); }
                 string control = key.Key == 13 ? "Enter" : key.Key == 9 ? "Tab" : key.Key == 119 ? "F8" : null;
                 bool ctrl = Native.Down(0x11), alt = Native.Down(0x12), shift = Native.Down(0x10), win = Native.Down(0x5b) || Native.Down(0x5c);
                 if (ctrl && !alt && !win && key.Key == 0xdd) control = "GS";
                 if (control != null && !alt && !win && (control == "GS" || (!ctrl && !shift)))
                 {
                     if (buffer.Control(control, now, foreground)) { suppressed.Add(key.Key); return new IntPtr(1); }
+                    Interlocked.Increment(ref generation);
                     return Next(code, message, data);
                 }
+                Interlocked.Increment(ref generation);
                 if (key.Key == 0x10 || key.Key == 0xa0 || key.Key == 0xa1 || key.Key == 0x11 || key.Key == 0xa2 || key.Key == 0xa3) return Next(code, message, data);
                 if (busy || ctrl || alt || win) { buffer.Clear(); return Next(code, message, data); }
                 char ch = Native.TranslateScanner(key, foreground), actual = Native.Translate(key, foreground);
@@ -260,8 +271,6 @@ namespace OzonMarkingDesktop
                 else
                 {
                     buffer.Character(ch, actual, now, foreground, own);
-                    if (MarkingCode.Clean(buffer.Candidate).Length == 18 && MarkingCode.LooksLikeCode(buffer.Candidate))
-                        Native.PrepareScannerKeyboard(foreground);
                 }
             }
             catch { buffer.Reset(); }
@@ -302,7 +311,6 @@ namespace OzonMarkingDesktop
                 if (busy) { Report("Предыдущий код ещё обрабатывается. Повторите следующий скан.", true); return; }
                 bool own = Native.OwnWindow(scan.Window) && ownTestFocus();
                 if (!own && !Native.BrowserWindow(scan.Window)) { Report("COM-код получен. Сначала выберите пустое поле маркировки в браузере.", true); return; }
-                if (scan.Window == Native.GetForegroundWindow()) Native.PrepareScannerKeyboard(scan.Window);
                 ProcessPacket(new ScanPacket { Raw = scan.Raw, Typed = "", Window = scan.Window, AllowOwnTest = own, Generation = scan.Generation, DirectInput = true });
             }, null);
         }
@@ -320,7 +328,8 @@ namespace OzonMarkingDesktop
         {
             CodeResult result = MarkingCode.Normalize(packet.Raw);
             if (!result.Ok) { if (MarkingCode.LooksLikeCode(packet.Raw)) Report(result.Message, true); return; }
-            if (!result.Changed && !packet.DirectInput) { Report("Код уже содержит нужные разделители. Проверьте ответ Ozon.", false); return; }
+            // Do not load layouts or inject Caps Lock from the low-level keyboard callback.
+            Native.PrepareScannerKeyboard(packet.Window);
             busy = true; busySince = Now;
             Task.Factory.StartNew(delegate
             {
@@ -332,9 +341,9 @@ namespace OzonMarkingDesktop
                     { Thread.Sleep(100); first = FocusFrame.Read(packet.AllowOwnTest); }
                     if (first == null) { Report("Браузер не предоставил доступ к активному полю. Нажмите на поле маркировки и повторите сканирование.", true); return; }
                     ReplacementPlan plan = ReplacementPlan.Create(first.Value, packet, result.Code, first.WholeValueOnly);
-                    if (!first.CaretAtEnd || plan == null) { Report("Поле или положение курсора изменилось. Код не заменён. Очистите поле и повторите сканирование.", true); return; }
-                    FocusFrame second = FocusFrame.Read(packet.AllowOwnTest);
-                    if (second == null || second.Identity != first.Identity || second.Value != first.Value || !second.CaretAtEnd || !Ready(packet)) { Report("Во время проверки изменился ввод. Повторите сканирование.", true); return; }
+                    if (plan == null || (!plan.ReplaceWhole && !first.CaretAtEnd)) { Report("Текст поля не совпадает со сканом. Код не заменён. Очистите поле и повторите сканирование.", true); return; }
+                    FocusFrame second = FocusFrame.ReadLike(first, packet.AllowOwnTest);
+                    if (second == null || second.Identity != first.Identity || second.Value != first.Value || (!plan.ReplaceWhole && !second.CaretAtEnd) || !Ready(packet)) { Report("Во время проверки изменился ввод. Повторите сканирование.", true); return; }
                     if (Native.Down(0x10) || Native.Down(0x11) || Native.Down(0x12) || Native.Down(0x5b) || Native.Down(0x5c)) { Report("Отпустите клавиши-модификаторы и повторите сканирование.", true); return; }
                     bool sent = false;
                     if (second.LegacyObject != null)
@@ -342,12 +351,12 @@ namespace OzonMarkingDesktop
                         try { second.LegacyObject.set_accValue(second.LegacyChild, plan.Expected); sent = true; }
                         catch
                         {
-                            FocusFrame unchanged = FocusFrame.Read(packet.AllowOwnTest);
+                            FocusFrame unchanged = FocusFrame.ReadLike(first, packet.AllowOwnTest);
                             if (unchanged == null || unchanged.Identity != first.Identity || unchanged.Value != first.Value || !Ready(packet))
                             { Report("Браузер не разрешил замену. Поле изменилось; автоматический повтор отменён.", true); return; }
                         }
                     }
-                    if (!sent) sent = first.WholeValueOnly ? Native.ReplaceWhole(plan.Expected) : Native.ReplaceTypedSuffix(packet.Typed.Length, result.Code);
+                    if (!sent) sent = plan.ReplaceWhole ? Native.ReplaceWhole(plan.Expected) : Native.ReplaceTypedSuffix(packet.Typed.Length, result.Code);
                     if (!sent)
                     {
                         enabled = false; Action fail = FailedInput; if (fail != null) fail();
@@ -357,13 +366,13 @@ namespace OzonMarkingDesktop
                     long verifyUntil = Now + 1500;
                     while (Now < verifyUntil && Ready(packet))
                     {
-                        Thread.Sleep(80);
-                        FocusFrame actual = FocusFrame.Read(packet.AllowOwnTest);
+                        Thread.Sleep(50);
+                        FocusFrame actual = FocusFrame.ReadLike(first, packet.AllowOwnTest);
                         if (actual == null || actual.Identity != first.Identity) break;
                         stable = plan.Matches(actual.Value) ? stable + 1 : 0;
-                        if (stable >= 3) break;
+                        if (stable >= 2) break;
                     }
-                    if (stable < 3 || !Ready(packet))
+                    if (stable < 2 || !Ready(packet))
                     {
                         Report("Замена не подтверждена: браузер не сохранил разделители или фокус изменился. Проверьте поле и повторите сканирование.", true);
                         return;

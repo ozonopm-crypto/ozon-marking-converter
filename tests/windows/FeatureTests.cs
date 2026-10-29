@@ -23,6 +23,9 @@ internal static class FeatureTests
         SerialScan scan = stream.Poll(1500);
         Check(scan != null && scan.Raw == raw && scan.Window == first && scan.Generation == 1, "initial target and input retained across chunks");
         Check(stream.Poll(2000) == null, "no duplicate idle scan");
+        stream.Feed(raw, 2001, first, 1);
+        Check(stream.Poll(2020) == null, "COM waits for frame boundary before fast delivery");
+        Check(stream.Poll(2041) != null, "complete COM scan avoids 350 ms idle delay");
         Check(stream.Feed(raw + "\r\n" + raw + "\n", 2100, first, 1).Count == 2, "CRLF and multiple packets");
         stream.Reset();
         Check(stream.Feed(new string('X', 200) + "\r\n" + raw + "\r", 2200, first, 1).Count == 1, "overflow resync");
@@ -48,6 +51,24 @@ internal static class FeatureTests
         Check(plan != null && plan.Matches("prefix" + prepared), "UIA suffix preserves verified prefix");
         Check(!plan.Matches(prepared), "lost prefix rejected");
         Check(ReplacementPlan.Create("existing", direct, prepared, true) == null, "COM never replaces existing text");
+        keyboard.Typed = "different transport representation";
+        keyboard.Raw = MarkingCode.DemoRaw;
+        plan = ReplacementPlan.Create(MarkingCode.DemoRaw, keyboard, prepared, true);
+        Check(plan != null && plan.ReplaceWhole, "exact decoded code supports whole-field replacement without caret dependency");
+        plan = ReplacementPlan.Create(prepared.Replace(MarkingCode.Marker, "\x1d"), keyboard, prepared, true);
+        Check(plan != null && plan.ReplaceWhole, "browser-decoded separators do not cause a false changed-field error");
+        Check(ReplacementPlan.Create(MarkingCode.DemoRaw.Replace("TEST123", "Test123"), keyboard, prepared, true) == null, "different letter case is not accepted as equivalent code");
+        System.Collections.Generic.Dictionary<string, int> remembered = new System.Collections.Generic.Dictionary<string, int>();
+        ScannerDevice unrelated = new ScannerDevice { Port = "COM1", Id = "UPS-ID", Name = "UPS Serial Port" };
+        Check(!DevicePolicy.ShouldOpenSerial(unrelated, remembered), "unrelated COM port must not be opened");
+        Check(!DevicePolicy.ShouldOpenSerial(new ScannerDevice { Port = "COM4", Id = "FISCAL-ID", Name = "АТОЛ 30Ф" }, remembered), "ATOL manufacturer alone does not identify a scanner");
+        ScannerDevice scannerPort = new ScannerDevice { Port = "COM2", Id = "SCANNER-ID", Name = "ATOL SB3100" };
+        Check(DevicePolicy.ShouldOpenSerial(scannerPort, remembered), "named scanner is discovered automatically");
+        ScannerDevice generic = new ScannerDevice { Port = "COM7", Id = "REMEMBERED-ID", Name = "USB Serial" };
+        remembered[DevicePolicy.RateKey(generic.Id)] = 38400;
+        Check(DevicePolicy.ShouldOpenSerial(generic, remembered), "previously confirmed scanner is remembered by identity");
+        Check(!DevicePolicy.ShouldOpenSerial(new ScannerDevice { Port = "COM7", Id = "OTHER-ID", Name = "USB Serial" }, remembered), "COM number reuse does not claim unrelated equipment");
+        Check(!DevicePolicy.ShouldOpenSerial(new ScannerDevice { Keyboard = true, Name = "ATOL" }, remembered), "HID scanner never opens a COM channel");
         ScanBuffer layoutBuffer = new ScanBuffer();
         long stamp = 1000;
         foreach (char ch in MarkingCode.DemoRaw)
@@ -63,10 +84,11 @@ internal static class FeatureTests
         BaudProbe probe = new BaudProbe(0);
         Check(probe.Speed == 9600 && !probe.Confirmed, "auto starts at common baud");
         Check(!probe.ShouldAdvance(1000), "no immediate rate switch");
-        Check(probe.ShouldAdvance(5100) && probe.Speed == 115200, "idle discovery cycles");
+        Check(!probe.ShouldAdvance(5100) && probe.Speed == 9600, "idle port does not reconnect or change baud");
         probe.Received(6000);
         Check(!probe.ShouldAdvance(6300), "do not change baud mid scan");
-        Check(probe.ShouldAdvance(7700), "invalid scan triggers next rate");
+        Check(probe.ShouldAdvance(7700) && probe.Speed == 115200, "invalid scan triggers next rate");
+        Check(!probe.ShouldAdvance(100000), "no endless cycling after a failed scan");
         probe.Confirm();
         Check(!probe.ShouldAdvance(1000000), "successful baud stays locked while idle");
         probe = new BaudProbe(38400);

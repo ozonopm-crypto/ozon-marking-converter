@@ -9,7 +9,7 @@ namespace OzonMarkingDesktop
     {
         private static readonly int[] Speeds = { 9600, 115200, 38400, 19200, 57600, 4800, 2400, 1200 };
         private int index;
-        private long since, received;
+        private long received;
         public bool Confirmed { get; private set; }
         public int Speed { get { return Speeds[index]; } }
         public BaudProbe(int saved)
@@ -21,11 +21,10 @@ namespace OzonMarkingDesktop
         public void Confirm() { Confirmed = true; received = 0; }
         public bool ShouldAdvance(long now)
         {
-            if (since == 0) since = now;
-            if (received == 0 && Confirmed) return false;
+            // RU: Не перезапускаем порт без данных. EN: Never cycle an idle port.
+            if (received == 0) return false;
             if (received != 0 && now - received < 1600) return false;
-            if (received == 0 && now - since < 4000) return false;
-            index = (index + 1) % Speeds.Length; since = now; received = 0; Confirmed = false;
+            index = (index + 1) % Speeds.Length; received = 0; Confirmed = false;
             return true;
         }
     }
@@ -40,6 +39,11 @@ namespace OzonMarkingDesktop
 
     public static class DevicePolicy
     {
+        public static bool ShouldOpenSerial(ScannerDevice device, System.Collections.Generic.IDictionary<string, int> known)
+        {
+            if (device == null || device.Keyboard) return false;
+            return device.LikelyScanner || (!String.IsNullOrEmpty(device.Id) && known.ContainsKey(RateKey(device.Id)));
+        }
         public static string RateKey(string identity)
         {
             using (System.Security.Cryptography.SHA256 hash = System.Security.Cryptography.SHA256.Create())
@@ -47,7 +51,7 @@ namespace OzonMarkingDesktop
         }
         public static bool IsScannerName(string value)
         {
-            return Regex.IsMatch(value ?? "", @"(?i)(\bATOL\b|АТОЛ|SB[ -]?3100|barcode|bar code|сканер|scanner)");
+            return Regex.IsMatch(value ?? "", @"(?i)(SB[ -]?3100|barcode|bar code|сканер|scanner)");
         }
         public static ScannerDevice ChoosePort(IEnumerable<ScannerDevice> devices, string selection, string identity)
         {
@@ -105,7 +109,9 @@ namespace OzonMarkingDesktop
         }
         public SerialScan Poll(long now)
         {
-            if (text.Length == 0 || now - last < 350) return null;
+            if (text.Length == 0) return null;
+            bool complete = !overflow && text.Length >= 83 && text[text.Length - 1] == '=' && MarkingCode.Normalize(text.ToString()).Ok;
+            if (now - last < (complete ? 35 : 350)) return null;
             SerialScan result = !overflow && MarkingCode.Normalize(text.ToString()).Ok ? new SerialScan { Raw = text.ToString(), Window = window, Generation = generation } : null;
             if (result != null || now - last > 1500) Reset();
             return result;

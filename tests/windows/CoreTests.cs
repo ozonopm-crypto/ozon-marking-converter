@@ -43,7 +43,7 @@ internal static class CoreTests
         Check(buffer.Control("F8", now, first), "second F8 trapped");
         now = Feed(buffer, "92" + Tail, now + 7, first);
         Check(buffer.Control("Enter", now, first), "scanner Enter trapped");
-        Check(buffer.Poll(now + 50, 9) == null, "wait for scan idle");
+        Check(buffer.Poll(now + 10, 9) == null, "wait for scanner key release");
         ScanPacket scan = buffer.Poll(now + 300, 9);
         Check(scan != null && MarkingCode.Normalize(scan.Raw).Code == Expected, "separator scan completes");
         Check(scan.Typed == MarkingCode.DemoRaw, "backspace count excludes intercepted controls");
@@ -74,6 +74,16 @@ internal static class CoreTests
         buffer.Reset(); Check(!buffer.HasCandidate, "pause clears candidate");
         now = Feed(buffer, "Ordinary text", 2000, first);
         Check(buffer.Poll(now + 300, 1) == null, "ordinary text never forms a packet");
+        buffer = new ScanBuffer { IdleMilliseconds = 650 };
+        now = Feed(buffer, MarkingCode.DemoRaw, 1000, first);
+        Check(buffer.Poll(now + 10, 1) == null, "complete scan waits briefly for final key release");
+        scan = buffer.Poll(now + 40, 1);
+        Check(scan != null && MarkingCode.Normalize(scan.Raw).Code == Expected, "complete scan does not wait 650 ms");
+        Check(buffer.Control("Enter", now + 60, first), "immediate scanner suffix consumed");
+        Check(!buffer.Control("Tab", now + 300, first), "human Tab is not delayed after completed scan");
+        buffer = new ScanBuffer { IdleMilliseconds = 650 };
+        now = Feed(buffer, Base, 1000, first);
+        Check(buffer.Poll(now + 40, 1) == null, "partial scan is not mistaken for fast complete scan");
         Console.WriteLine("PASS: " + count + " normalization, scan timing, boundary, focus and replacement checks.");
     }
 }

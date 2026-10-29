@@ -6,13 +6,13 @@ RU: Программа Windows и отдельное расширение бра
 
 EN: A Windows application and a separate browser extension that prepare separators in long Chestny ZNAK marking codes for Ozon Seller. Ozon validates the code and its status. Missing characters are not reconstructed, and letter case is not guessed.
 
-## Windows 1.2.1 — validation build / сборка для проверки
+## Windows 1.2.2 — validation build / сборка для проверки
 
-[Download Windows installer / Скачать установщик Windows](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.1.exe)
+[Download Windows installer / Скачать установщик Windows](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.2.exe)
 
-RU: В 1.2.0 обнаружены проблемы доступа к полю Яндекс Браузера и преждевременное сообщение об успешной замене. В 1.2.1 добавлен доступ к активному полю через MSAA и проверка сохранённого результата. **Исправление требует проверки на физическом сканере и в рабочем Ozon. Управление браузером в среде разработки было остановлено, поэтому сквозной браузерный тест не подтверждён.**
+RU: В 1.2.2 убраны переключение раскладки из обработчика клавиш, постоянный перебор скорости на пустом COM-порту и частый опрос устройств. Полный код передаётся в обработку после короткого ожидания отпускания клавиши; точное совпадение всего кода в поле больше не требует проверки курсора. **Проверка на физическом сканере и в рабочем Ozon всё ещё требуется. Управление браузером в среде разработки остановлено из-за невозможности надёжно определить URL; сквозной тест не подтверждён.**
 
-EN: Version 1.2.0 had field-access failures in Yandex Browser and could report success before verifying the replacement. Version 1.2.1 adds MSAA access to the focused field and verifies the stored result. **Validation with a physical scanner and the live Ozon field is still required. Browser automation in the development environment was stopped, so the end-to-end browser test has not been confirmed.**
+EN: Version 1.2.2 moves layout changes out of the keyboard callback, stops idle COM baud cycling, and reduces device polling. Complete scans are processed after a short key-release delay; an exact whole-code match no longer depends on caret reporting. **Physical scanner and live Ozon validation are still required. Browser automation was stopped because the URL could not be determined reliably; end-to-end verification remains unconfirmed.**
 
 ### Installation and use / Установка и работа
 
@@ -26,13 +26,13 @@ EN: Disable the previous converter extension. Connect the scanner, clear and foc
 
 ### Automatic connection / Автоматическое подключение
 
-RU: USB/HID и доступные COM-порты обнаруживаются автоматически. Для COM подбирается скорость из набора 1200–115200 бод, формат 8N1 без управления потоком. Первое определение может потребовать нескольких сканирований. Успешные параметры запоминаются. Доступные COM-порты открываются для чтения; команды устройствам не отправляются.
+RU: USB/HID обнаруживается автоматически. COM открывается только для устройства с названием сканера или ранее подтверждённым идентификатором. Прочие порты не открываются. Скорость меняется только после поступления некорректных данных; без данных перебора нет. Формат 8N1 без управления потоком, набор скоростей 1200–115200 бод. Неопознанному COM-устройству может потребоваться драйвер производителя.
 
-EN: USB/HID and available COM ports are discovered automatically. COM detection tries supported rates between 1200 and 115200 baud, using 8N1 without flow control. Several scans may be needed for initial detection. Successful parameters are remembered. Available COM ports are opened for reading; no commands are sent to devices.
+EN: USB/HID is detected automatically. A COM port is opened only for a scanner-named or previously confirmed device identity. Other ports remain unopened. Baud changes occur only after invalid incoming data; idle ports do not cycle. Supported rates are between 1200 and 115200 baud, using 8N1 without flow control. An unidentified COM device may require its vendor driver.
 
-RU: При распознавании начала маркировки запрашивается ENG и выключается Caps Lock. Bluetooth поддерживается через базу либо как уже сопряжённая в Windows клавиатура / COM. Закрытые протоколы, установка драйверов и сопряжение Bluetooth не выполняются программой.
+RU: После получения полного поддерживаемого кода запрашивается ENG и выключается Caps Lock. Во время скана раскладка не переключается; клавиши разбираются по английской раскладке. Bluetooth поддерживается через базу либо как уже сопряжённая в Windows клавиатура / COM. Драйверы, закрытые протоколы и сопряжение требуют средств производителя / Windows.
 
-EN: When a marking-code prefix is recognized, the application requests English input and switches Caps Lock off. Bluetooth is supported through the scanner base or an already paired Windows keyboard/COM interface. Proprietary protocols, driver installation, and Bluetooth pairing are outside the application's scope.
+EN: After a complete supported scan is received, the application requests English input and switches Caps Lock off. The layout is not switched mid-scan; scanner keys are decoded using English. Bluetooth works through a base or an already paired Windows keyboard/COM interface. Proprietary protocols, drivers, and pairing require vendor/Windows tools.
 
 ### Updates / Обновления
 

@@ -1,11 +1,12 @@
 MARKING CODE CONVERTER FOR OZON / ПРЕОБРАЗОВАТЕЛЬ КОДА ДЛЯ OZON — WINDOWS
 by PEI
 
-RU: Сборка 1.2.1 требует проверки на рабочем месте. Добавлен доступ
-через MSAA и проверка результата записи. Сквозной тест в браузере
-в среде разработки не подтверждён.
-EN: Version 1.2.1 requires workplace validation. It adds MSAA access and
-post-write verification. End-to-end browser verification is unconfirmed.
+RU: Сборка 1.2.2 требует проверки на рабочем месте. Убраны лишние
+опросы и задержки; точный полный код не зависит от проверки курсора.
+Сквозной тест в браузере в среде разработки не подтверждён.
+EN: Version 1.2.2 requires workplace validation. Excess polling and delays
+were removed; exact full-code matches do not depend on caret reporting.
+End-to-end browser verification is unconfirmed.
 
 УСТАНОВКА
 Запустите установщик. Будут созданы ярлыки на рабочем столе и в меню
@@ -27,19 +28,20 @@ Windows 10/11 x64, .NET Framework 4.8. Установка для текущег�
 4. Проверьте ответ Ozon. Подтверждает товар сотрудник.
 
 ВЫБИРАТЬ ПОРТ, ИНТЕРФЕЙС И СКОРОСТЬ НЕ НУЖНО.
-USB/HID отслеживается автоматически. Доступные COM-порты прослушиваются
-автоматически; программа не отправляет в них команды. Занятый порт
-повторно проверяется каждые 3 секунды. Список устройств обновляется
-примерно каждые 5 секунд.
+USB/HID отслеживается автоматически. COM открывается только для
+распознанного или ранее подтверждённого сканера. Остальные порты
+не открываются. Устройства обновляются по событиям подключения/
+отключения и дополнительно раз в минуту. Без данных скорость не меняется.
 
-COM: автоматически перебираются 9600, 115200, 38400, 19200, 57600,
+COM: после некорректных входящих данных проверяются 9600, 115200, 38400, 19200, 57600,
 4800, 2400 и 1200 бод, формат 8N1 без управления потоком.
 При первом определении может понадобиться несколько сканирований,
 пока подбирается скорость. После корректного кода скорость запоминается.
 Сканируйте по одному товару и ждите результата в поле.
 
-Для USB в режиме клавиатуры при распознавании начала кода запрашивается
-английская раскладка ENG и выключается Caps Lock. Данные сканера
+Для USB после получения полного поддерживаемого кода запрашивается
+английская раскладка ENG и выключается Caps Lock. Во время самого скана
+раскладка не переключается. Данные сканера
 разбираются по английской раскладке независимо от языка Windows.
 Уже набранные символы проверяются перед заменой. Обычный ввод текста,
 не похожий на начало маркировки, не переключает язык.
@@ -85,7 +87,8 @@ https://github.com/ozonopm-crypto/ozon-marking-converter
 Браузера, Chrome, Edge и Opera. Адрес сайта не проверяется — выбирайте
 поле маркировки. Браузер должен работать без повышения прав.
 COM вставляет код только в пустое поле. Для USB проверяется точное
-совпадение считанного текста в конце поля и положение курсора.
+совпадение полного кода или считанного суффикса. Положение курсора
+учитывается только при замене суффикса, если в поле есть другой префикс.
 Через MSAA весь текст поля должен совпадать со считанным кодом.
 После записи результат перечитывается и проверяется.
 Если Windows не позволяет проверить поле, программа отказывается
@@ -116,16 +119,19 @@ Clear and focus Ozon's marking-code field, scan one item, and check Ozon's
 response. Confirm the item manually.
 
 AUTOMATIC CONNECTION
-No port, interface, or baud selection is required. USB/HID input is
-monitored automatically. Available COM ports are opened for reading,
-without sending commands. Busy ports are retried every three seconds;
-device discovery runs approximately every five seconds.
+No port, interface, or baud selection is needed for recognized scanners.
+USB/HID input is monitored automatically. Only scanner-named or previously
+confirmed COM devices are opened; unrelated ports remain unopened.
+Device events trigger discovery, with a one-minute fallback refresh.
+Idle COM ports do not change baud rates.
 COM rates: 9600, 115200, 38400, 19200, 57600, 4800, 2400, 1200 baud.
-Format: 8N1 without flow control. Initial detection may require several
+Format: 8N1 without flow control. Baud changes require invalid incoming
+data. An unidentified COM scanner may need its vendor driver. Initial detection may require several
 scans. Successful parameters are remembered. Scan one item at a time.
 
-The application requests English input and switches Caps Lock off when
-a marking-code prefix is recognized. Scanner keys are decoded using the
+The application requests English input and switches Caps Lock off after
+a complete supported scan. The layout is not changed mid-scan.
+Scanner keys are decoded using the
 English layout; the actual typed suffix is checked before replacing it.
 Ordinary text does not switch the layout. COM data does not depend on it.
 Bluetooth works through a base or a keyboard/COM device already paired
@@ -163,7 +169,8 @@ is neither read nor changed.
 Yandex Browser, Chrome, Edge and Opera must run without elevation.
 The focused text field must expose its value through Windows accessibility.
 The website URL is not checked. COM requires an empty field. USB requires
-a matching typed suffix and verified caret position. With MSAA, the whole
+a matching whole code or typed suffix. Caret position is required only
+for suffix replacement with a separate prefix. With MSAA, the whole
 existing value must match the scan, allowing a whole-field replacement.
 The result is read back after writing. Inaccessible fields, focus changes,
 and unverified values produce a failure message. A successful field write

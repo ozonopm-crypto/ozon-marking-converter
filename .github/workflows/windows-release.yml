@@ -1,0 +1,49 @@
+name: Выпустить Windows-версию
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Новая версия, например 1.2.1'
+        required: true
+        type: string
+      notes:
+        description: 'Что изменилось — текст для сотрудников'
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Собрать установщик и проверить программу
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $current = [regex]::Match([IO.File]::ReadAllText('src/windows/App.cs'), 'AssemblyVersion\("(\d+\.\d+\.\d+)\.0"\)').Groups[1].Value
+          if ([version]$env:RELEASE_VERSION -le [version]$current) { throw 'Укажите версию выше текущей.' }
+          & ./src/windows/prepare-release.ps1 -Version $env:RELEASE_VERSION -Notes $env:RELEASE_NOTES
+      - name: Опубликовать установщик и сведения об обновлении
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Copy-Item -LiteralPath "outputs/publish/downloads/OzonMarkingConverter-Setup-$env:RELEASE_VERSION.exe" -Destination downloads -Force
+          Copy-Item -LiteralPath outputs/publish/windows-updates.json -Destination windows-updates.json -Force
+          git config user.name 'PEI Release'
+          git config user.email '328776067+ozonopm-crypto@users.noreply.github.com'
+          git add -- "downloads/OzonMarkingConverter-Setup-$env:RELEASE_VERSION.exe" windows-updates.json src/windows/App.cs src/windows/installer.iss
+          git commit -m "Windows release $env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Не удалось создать выпуск.' }
+          git push origin HEAD:main
+          if ($LASTEXITCODE -ne 0) { throw 'Публикация отклонена. Проверьте ветку main и повторите выпуск.' }

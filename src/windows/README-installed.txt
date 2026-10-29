@@ -1,12 +1,16 @@
 MARKING CODE CONVERTER FOR OZON / ПРЕОБРАЗОВАТЕЛЬ КОДА ДЛЯ OZON — WINDOWS
 by PEI
 
-RU: Сборка 1.2.2 требует проверки на рабочем месте. Убраны лишние
-опросы и задержки; точный полный код не зависит от проверки курсора.
-Сквозной тест в браузере в среде разработки не подтверждён.
-EN: Version 1.2.2 requires workplace validation. Excess polling and delays
-were removed; exact full-code matches do not depend on caret reporting.
-End-to-end browser verification is unconfirmed.
+RU: Проверочная версия 1.2.3. Исправлены учёт Shift и замена разделителей
+с сохранением символов проверенного поля. Пройдены 153 автоматические
+проверки и тест прежнего несовпадения в настоящем окне Windows.
+Реальный сканер и Ozon требуют проверки на рабочем месте.
+Общий канал обновлений остаётся на 1.2.2 до проверки реального товара.
+EN: Candidate 1.2.3 fixes Shift tracking and preserves verified field
+characters when repairing separators. Passed 153 automated assertions
+and the previous mismatch test in a real Windows window. Physical scanner
+and live Ozon validation are required. The shared feed remains on 1.2.2
+until a real item has been validated.
 
 УСТАНОВКА
 Запустите установщик. Будут созданы ярлыки на рабочем столе и в меню
@@ -39,13 +43,13 @@ COM: после некорректных входящих данных пров�
 пока подбирается скорость. После корректного кода скорость запоминается.
 Сканируйте по одному товару и ждите результата в поле.
 
-Для USB после получения полного поддерживаемого кода запрашивается
+Для USB после подтверждённой записи поддерживаемого кода запрашивается
 английская раскладка ENG и выключается Caps Lock. Во время самого скана
 раскладка не переключается. Данные сканера
 разбираются по английской раскладке независимо от языка Windows.
 Уже набранные символы проверяются перед заменой. Обычный ввод текста,
 не похожий на начало маркировки, не переключает язык.
-COM передаёт данные независимо от раскладки; при обработке также
+COM передаёт данные независимо от раскладки; после записи также
 запрашивается ENG и выключается Caps Lock.
 
 Bluetooth поддерживается через USB-базу или после сопряжения в Windows
@@ -74,6 +78,10 @@ https://github.com/ozonopm-crypto/ozon-marking-converter
 
 ПРОВЕРКА И ОГРАНИЧЕНИЯ
 На вкладке «Проверка кода» есть искусственный пример и тест автозамены.
+«Тест несовпадения» проверяет сохранение символов поля при несовпадении
+регистра захваченного текста. На вкладке «Диагностика» показываются
+длины и результаты сравнения. Сам код в отчёт не включён; отчёт остаётся
+только в памяти до следующей проверки или закрытия программы.
 Перед массовым использованием проверьте один реальный товар в Ozon.
 Физический АТОЛ SB3100 BT и работу на складе нужно проверить на месте.
 
@@ -86,10 +94,13 @@ https://github.com/ozonopm-crypto/ozon-marking-converter
 Поддерживаются доступные для чтения активные текстовые поля Яндекс
 Браузера, Chrome, Edge и Opera. Адрес сайта не проверяется — выбирайте
 поле маркировки. Браузер должен работать без повышения прав.
-COM вставляет код только в пустое поле. Для USB проверяется точное
-совпадение полного кода или считанного суффикса. Положение курсора
+COM вставляет код только в пустое поле. Для USB проверяется весь код,
+а не только GTIN. При ENG и выключенном Caps Lock корректный текст
+поля может быть источником, если каждый символ полезной части
+соответствует той же физической клавише скана. Регистр поля сохраняется.
+Также поддерживается точное совпадение считанного суффикса. Положение курсора
 учитывается только при замене суффикса, если в поле есть другой префикс.
-Через MSAA весь текст поля должен совпадать со считанным кодом.
+Через MSAA выполняется только проверенная замена поля целиком.
 После записи результат перечитывается и проверяется.
 Если Windows не позволяет проверить поле, программа отказывается
 от изменения. При смене поля или вводе другого текста повторите скан.
@@ -130,7 +141,7 @@ data. An unidentified COM scanner may need its vendor driver. Initial detection 
 scans. Successful parameters are remembered. Scan one item at a time.
 
 The application requests English input and switches Caps Lock off after
-a complete supported scan. The layout is not changed mid-scan.
+a supported code has been written and verified. The layout is not changed mid-scan.
 Scanner keys are decoded using the
 English layout; the actual typed suffix is checked before replacing it.
 Ordinary text does not switch the layout. COM data does not depend on it.
@@ -157,6 +168,10 @@ VERIFICATION AND LIMITS
 The code-check tab provides a synthetic example and a Windows replacement
 test. The browser-test button applies only to the synthetic example;
 see tests/windows/browser-check.html in the source repository.
+The mismatch test checks preservation of field characters when captured
+letter case differs. Diagnostics shows lengths and comparison results
+without code contents. Its report exists only in memory until the next
+check or application exit.
 Test one real item before warehouse-wide use. Physical ATOL SB3100 BT
 and the live Ozon field require validation at the workplace.
 
@@ -168,10 +183,13 @@ is neither read nor changed.
 
 Yandex Browser, Chrome, Edge and Opera must run without elevation.
 The focused text field must expose its value through Windows accessibility.
-The website URL is not checked. COM requires an empty field. USB requires
-a matching whole code or typed suffix. Caret position is required only
-for suffix replacement with a separate prefix. With MSAA, the whole
-existing value must match the scan, allowing a whole-field replacement.
+The website URL is not checked. COM requires an empty field. USB checks
+the entire code, not just its GTIN. With English input and Caps Lock off,
+a valid field value may be used if every payload character corresponds
+to the same physical scanner key; field letter case is preserved.
+Exact typed-suffix matching is also supported. Caret position is required only
+for suffix replacement with a separate prefix. MSAA supports only
+verified whole-field replacements.
 The result is read back after writing. Inaccessible fields, focus changes,
 and unverified values produce a failure message. A successful field write
 does not mean Ozon accepted the code. Check the field before rescanning.

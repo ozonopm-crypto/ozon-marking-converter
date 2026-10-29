@@ -1,5 +1,27 @@
 # Changelog / История изменений
 
+## Windows 1.2.3 — candidate / проверочная версия
+
+RU:
+- Shift, Ctrl, Alt и Caps Lock учитываются по порядку событий; состояние не запрашивается асинхронно внутри обработчика клавиш.
+- Корректный код из активного поля сохраняется при полном соответствии физическим клавишам скана. Исправляются только разделители; регистр и символы поля не меняются наугад.
+- Добавлена запись значения целиком через UIA с проверкой результата; переключение ENG/Caps Lock выполняется после подтверждённой записи.
+- Поддержаны текстовые события программных сканеров; собственный ввод программы не захватывается повторно.
+- Щелчок или прокрутка отменяют незавершённую замену. Добавлены ожидание готовности поля и резервное чтение через MSAA.
+- На вкладке «Диагностика» показываются длины и результаты сравнения без самого кода; отчёт не сохраняется на диск и не отправляется в интернет.
+- Пройдены 153 автоматические проверки, установка/удаление и тест прежнего несовпадения в настоящем окне Windows. Физический сканер и реальный Ozon ещё требуют проверки.
+- Установщик распространяется отдельно; общий канал обновлений остаётся на 1.2.2 до проверки реального товара.
+
+EN:
+- Track Shift, Ctrl, Alt, and Caps Lock in keyboard event order instead of querying asynchronous state inside the keyboard callback.
+- Preserve a valid active-field code when its entire payload corresponds to the same physical scanner keys. Repair separators without guessing field characters or case.
+- Added whole-value UIA writes with result verification; request English input and Caps Lock off after a verified write.
+- Accept software-scanner text events while excluding the application's own injected input.
+- Cancel a pending replacement on a click or scroll. Added field-readiness retries and an MSAA alternative reader.
+- Diagnostics reports lengths and comparison results without code contents; it is neither written to disk nor sent over the network.
+- Passed 153 automated assertions, installation/uninstallation checks, and the previous mismatch test in a real Windows window. Physical scanner and live Ozon validation remain required.
+- Distribute this installer separately; the shared update feed remains on 1.2.2 until a real item has been validated.
+
 ## Windows 1.2.2 — validation build / сборка для проверки
 
 RU:

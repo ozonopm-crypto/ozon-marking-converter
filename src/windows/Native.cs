@@ -12,6 +12,7 @@ namespace OzonMarkingDesktop
 {
     internal static class Native
     {
+        public static readonly UIntPtr OwnInputTag = new UIntPtr(0x5045494d);
         public delegate IntPtr HookProc(int code, IntPtr message, IntPtr data);
         [StructLayout(LayoutKind.Sequential)] public struct KeyboardData { public uint Key, Scan, Flags, Time; public UIntPtr Extra; }
         [StructLayout(LayoutKind.Sequential)] private struct KeyboardInput { public ushort Key, Scan; public uint Flags, Time; public UIntPtr Extra; }
@@ -29,7 +30,6 @@ namespace OzonMarkingDesktop
         [DllImport("user32.dll")] public static extern short GetKeyState(int key);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr LoadKeyboardLayout(string layout, uint flags);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool PostMessage(IntPtr window, uint message, IntPtr param, IntPtr value);
-        [DllImport("user32.dll")] private static extern bool GetKeyboardState(byte[] state);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int ToUnicodeEx(uint key, uint scan, byte[] state, StringBuilder output, int length, uint flags, IntPtr layout);
         [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, Input[] inputs, int size);
         public static bool Down(int key) { return (GetAsyncKeyState(key) & 0x8000) != 0; }
@@ -39,42 +39,34 @@ namespace OzonMarkingDesktop
             int language = (int)(GetKeyboardLayout(thread).ToInt64() & 0xffff);
             return (language & 0x3ff) == 9 && (GetKeyState(0x14) & 1) == 0;
         }
-        public static char Translate(KeyboardData key, IntPtr window)
-        {
-            return TranslateWithLayout(key, window, false);
-        }
         private static IntPtr englishLayout;
         public static void InitializeScannerKeyboard()
         {
             if (englishLayout == IntPtr.Zero) englishLayout = LoadKeyboardLayout("00000409", 0);
         }
-        public static char TranslateScanner(KeyboardData key, IntPtr window)
-        {
-            return TranslateWithLayout(key, window, true);
-        }
-        private static char TranslateWithLayout(KeyboardData key, IntPtr window, bool scanner)
+        public static char TranslateActual(KeyboardData key, IntPtr window, byte[] state, out bool usLayout)
         {
             uint pid; uint thread = GetWindowThreadProcessId(window, out pid);
-            byte[] state = new byte[256];
-            if (!GetKeyboardState(state)) return '\0';
-            state[0x10] = (byte)(Down(0x10) ? 0x80 : 0);
-            state[0x11] = (byte)(Down(0x11) ? 0x80 : 0);
-            state[0x12] = (byte)(Down(0x12) ? 0x80 : 0);
-            state[0x14] = scanner ? (byte)0 : (byte)(GetKeyState(0x14) & 1);
-            if (key.Key < 256) state[key.Key] |= 0x80;
             StringBuilder result = new StringBuilder(8);
-            if (scanner && englishLayout == IntPtr.Zero) englishLayout = LoadKeyboardLayout("00000409", 0);
-            IntPtr layout = scanner ? englishLayout : GetKeyboardLayout(thread);
+            IntPtr layout = GetKeyboardLayout(thread);
+            usLayout = (layout.ToInt64() & 0xffff) == 0x0409;
             if (layout == IntPtr.Zero) return '\0';
             int count = ToUnicodeEx(key.Key, key.Scan, state, result, 8, 4, layout);
             return count == 1 ? result[0] : '\0';
         }
-        public static void PrepareScannerKeyboard(IntPtr window)
+        public static char TranslateUs(KeyboardData key, byte[] state)
+        {
+            StringBuilder result = new StringBuilder(8);
+            int count = ToUnicodeEx(key.Key, key.Scan, state, result, 8, 4, englishLayout);
+            return count == 1 ? result[0] : '\0';
+        }
+        public static void PrepareScannerKeyboard(IntPtr window, bool capsOn)
         {
             if (window != GetForegroundWindow()) return;
             if (englishLayout == IntPtr.Zero) englishLayout = LoadKeyboardLayout("00000409", 0);
-            if (englishLayout != IntPtr.Zero) PostMessage(window, 0x50, IntPtr.Zero, englishLayout);
-            if ((GetKeyState(0x14) & 1) != 0)
+            uint pid; uint thread = GetWindowThreadProcessId(window, out pid);
+            if (englishLayout != IntPtr.Zero && (GetKeyboardLayout(thread).ToInt64() & 0xffff) != 0x0409) PostMessage(window, 0x50, IntPtr.Zero, englishLayout);
+            if (capsOn)
             {
                 Input[] keys = { Key(0x14, 0, 0), Key(0x14, 0, 2) };
                 SendInput(2, keys, Marshal.SizeOf(typeof(Input)));
@@ -103,7 +95,7 @@ namespace OzonMarkingDesktop
         private static Input Key(ushort key, ushort scan, uint flags)
         {
             Input value = new Input(); value.Type = 1;
-            value.Data.Keyboard = new KeyboardInput { Key = key, Scan = scan, Flags = flags, Extra = UIntPtr.Zero };
+            value.Data.Keyboard = new KeyboardInput { Key = key, Scan = scan, Flags = flags, Extra = OwnInputTag };
             return value;
         }
         public static bool ReplaceTypedSuffix(int count, string result)
@@ -134,6 +126,12 @@ namespace OzonMarkingDesktop
         public bool WholeValueOnly;
         public Accessibility.IAccessible LegacyObject;
         public object LegacyChild;
+        public Action<string> WriteValue;
+        public static FocusFrame Alternative(FocusFrame previous, bool ownTest)
+        {
+            if (!Native.BrowserWindow(Native.GetForegroundWindow())) return null;
+            try { return previous.LegacyObject == null ? LegacyFocus.Read() : ReadUia(ownTest); } catch { return null; }
+        }
         public static FocusFrame Read(bool ownTest)
         {
             try { FocusFrame uia = ReadUia(ownTest); if (uia != null) return uia; } catch { }
@@ -164,12 +162,14 @@ namespace OzonMarkingDesktop
             if (name.Contains("адрес") || name.Contains("address") || name.Contains("поиск") || name.Contains("search") || id.Contains("omnibox")) return null;
             object valueObject;
             string value = null;
+            Action<string> writer = null;
             if (element.TryGetCurrentPattern(ValuePattern.Pattern, out valueObject))
             {
                 ValuePattern pattern = (ValuePattern)valueObject;
                 UnavailableReason = "поле только для чтения";
                 if (pattern.Current.IsReadOnly) return null;
                 value = pattern.Current.Value;
+                writer = pattern.SetValue;
             }
             bool end = true;
             object textObject;
@@ -190,18 +190,21 @@ namespace OzonMarkingDesktop
             }
             UnavailableReason = "не предоставлены ValuePattern и TextPattern";
             if (value == null) return null;
-            return new FocusFrame { Value = value, Identity = String.Join(".", Array.ConvertAll(element.GetRuntimeId(), n => n.ToString())), CaretAtEnd = end };
+            return new FocusFrame { Value = value, Identity = String.Join(".", Array.ConvertAll(element.GetRuntimeId(), n => n.ToString())), CaretAtEnd = end, WriteValue = writer };
         }
     }
 
     internal sealed class ScannerHook : IDisposable
     {
         private readonly Native.HookProc callback;
+        private readonly Native.HookProc mouseCallback;
+        private readonly OrderedKeyboardState keyboard = new OrderedKeyboardState();
         private readonly ScanBuffer buffer = new ScanBuffer();
         private readonly Func<bool> ownTestFocus;
         private readonly HashSet<uint> suppressed = new HashSet<uint>();
         private readonly System.Windows.Forms.Timer timer;
         private IntPtr handle;
+        private IntPtr mouseHandle;
         private IntPtr cachedWindow;
         private bool cachedBrowser;
         private long cachedAt;
@@ -213,35 +216,57 @@ namespace OzonMarkingDesktop
         private long hookRenewed;
         private readonly SynchronizationContext context;
         private readonly bool captureScans;
+        private readonly bool ownOnly;
         public event Action<string, bool> Status;
         public event Action<string, bool> Converted;
         public event Action FailedInput;
+        public event Action<string> Diagnosis;
         public long Generation { get { return Interlocked.Read(ref generation); } }
         public bool Enabled { get { return enabled; } set { enabled = value; Interlocked.Increment(ref generation); buffer.Reset(); } }
         private static long Now { get { return Stopwatch.GetTimestamp() * 1000L / Stopwatch.Frequency; } }
-        public ScannerHook(Func<bool> testFocus, bool capture = true)
+        public ScannerHook(Func<bool> testFocus, bool capture = true, bool onlyOwnTest = false)
         {
+            ownOnly = onlyOwnTest;
             captureScans = capture;
             Native.InitializeScannerKeyboard();
+            SyncKeyboard();
             context = SynchronizationContext.Current;
             ownTestFocus = testFocus; callback = OnKey;
             handle = Native.SetWindowsHookEx(13, callback, Native.GetModuleHandle(null), 0);
             if (handle == IntPtr.Zero) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            mouseCallback = OnMouse;
+            mouseHandle = Native.SetWindowsHookEx(14, mouseCallback, Native.GetModuleHandle(null), 0);
             hookRenewed = Now;
             timer = new System.Windows.Forms.Timer { Interval = 35 };
             timer.Tick += Tick; timer.Start();
         }
         public void SetTiming(int gap, int idle) { buffer.GapMilliseconds = gap; buffer.IdleMilliseconds = idle; }
+        public void SyncKeyboard()
+        {
+            if (disposed || busy || buffer.HasCandidate) return;
+            foreach (int key in new int[] { 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0x5b, 0x5c }) keyboard.Seed(key, Native.Down(key));
+            keyboard.SeedCaps((Native.GetKeyState(0x14) & 1) != 0);
+            keyboard.SeedNumLock((Native.GetKeyState(0x90) & 1) != 0);
+        }
         private void Report(string value, bool error) { Action<string, bool> callback = Status; if (!disposed && callback != null) callback(value, error); }
         private IntPtr Next(int code, IntPtr message, IntPtr data) { return Native.CallNextHookEx(handle, code, message, data); }
+        private IntPtr OnMouse(int code, IntPtr message, IntPtr data)
+        {
+            long kind = message.ToInt64();
+            if (code >= 0 && (kind == 0x201 || kind == 0x204 || kind == 0x207 || kind == 0x20a || kind == 0x20e))
+            { Interlocked.Increment(ref generation); buffer.Reset(); }
+            return Native.CallNextHookEx(mouseHandle, code, message, data);
+        }
         private IntPtr OnKey(int code, IntPtr message, IntPtr data)
         {
             if (code < 0 || disposed) return Next(code, message, data);
             try
             {
                 Native.KeyboardData key = (Native.KeyboardData)Marshal.PtrToStructure(data, typeof(Native.KeyboardData));
-                if ((key.Flags & 0x12) != 0) return Next(code, message, data); // Never recapture simulated input.
                 bool up = message.ToInt64() == 0x101 || message.ToInt64() == 0x105;
+                if (up || message.ToInt64() == 0x100 || message.ToInt64() == 0x104)
+                    keyboard.Update((int)key.Key, !up, key.Scan, (key.Flags & 1) != 0);
+                if (key.Extra == Native.OwnInputTag) return Next(code, message, data); // Never recapture our own replacement.
                 if (up) { if (suppressed.Remove(key.Key)) return new IntPtr(1); return Next(code, message, data); }
                 if (message.ToInt64() != 0x100 && message.ToInt64() != 0x104) return Next(code, message, data);
                 if (suppressed.Contains(key.Key)) return new IntPtr(1);
@@ -249,13 +274,15 @@ namespace OzonMarkingDesktop
                 long now = Now;
                 IntPtr foreground = Native.GetForegroundWindow();
                 bool own = ownTestFocus() && Native.OwnWindow(foreground);
+                if (ownOnly && !own) { Interlocked.Increment(ref generation); buffer.Reset(); return Next(code, message, data); }
                 if (cachedWindow != foreground || now - cachedAt > 500)
                 {
                     cachedWindow = foreground; cachedBrowser = Native.BrowserWindow(foreground); cachedAt = now;
                 }
                 if (!cachedBrowser && !own) { Interlocked.Increment(ref generation); buffer.Reset(); return Next(code, message, data); }
-                string control = key.Key == 13 ? "Enter" : key.Key == 9 ? "Tab" : key.Key == 119 ? "F8" : null;
-                bool ctrl = Native.Down(0x11), alt = Native.Down(0x12), shift = Native.Down(0x10), win = Native.Down(0x5b) || Native.Down(0x5c);
+                bool unicodePacket = key.Key == 0xe7;
+                string control = key.Key == 13 || unicodePacket && key.Scan == 13 ? "Enter" : key.Key == 9 || unicodePacket && key.Scan == 9 ? "Tab" : key.Key == 119 ? "F8" : unicodePacket && key.Scan == 29 ? "GS" : null;
+                bool ctrl = keyboard.Control, alt = keyboard.Alt, shift = keyboard.Shift, win = keyboard.Windows;
                 if (ctrl && !alt && !win && key.Key == 0xdd) control = "GS";
                 if (control != null && !alt && !win && (control == "GS" || (!ctrl && !shift)))
                 {
@@ -263,14 +290,18 @@ namespace OzonMarkingDesktop
                     Interlocked.Increment(ref generation);
                     return Next(code, message, data);
                 }
+                if (key.Key == 0x14 || key.Key == 0x90 || key.Key == 0x91) return Next(code, message, data);
                 Interlocked.Increment(ref generation);
                 if (key.Key == 0x10 || key.Key == 0xa0 || key.Key == 0xa1 || key.Key == 0x11 || key.Key == 0xa2 || key.Key == 0xa3) return Next(code, message, data);
                 if (busy || ctrl || alt || win) { buffer.Clear(); return Next(code, message, data); }
-                char ch = Native.TranslateScanner(key, foreground), actual = Native.Translate(key, foreground);
+                bool usLayout = true;
+                char ch = unicodePacket ? (char)key.Scan : keyboard.DecodeUs((int)key.Key);
+                if (!unicodePacket && ch == '\0') ch = Native.TranslateUs(key, keyboard.Snapshot(true));
+                char actual = unicodePacket ? ch : Native.TranslateActual(key, foreground, keyboard.Snapshot(false), out usLayout);
                 if (ch == '\0' || actual == '\0') buffer.Clear();
                 else
                 {
-                    buffer.Character(ch, actual, now, foreground, own);
+                    buffer.Character(ch, actual, now, foreground, own, !unicodePacket && (!usLayout || keyboard.CapsLock));
                 }
             }
             catch { buffer.Reset(); }
@@ -324,12 +355,16 @@ namespace OzonMarkingDesktop
             if (!enabled || busy || disposed || !Native.BrowserWindow(window)) return;
             ProcessPacket(new ScanPacket { Raw = MarkingCode.DemoRaw, Typed = MarkingCode.DemoRaw, Window = window, Generation = Interlocked.Read(ref generation) });
         }
+        public void TestMismatch(IntPtr window)
+        {
+            if (!enabled || busy || disposed) return;
+            string captured = MarkingCode.DemoRaw.ToLowerInvariant();
+            ProcessPacket(new ScanPacket { Raw = captured, Typed = captured, Window = window, AllowOwnTest = true, Generation = Interlocked.Read(ref generation) });
+        }
         private void ProcessPacket(ScanPacket packet)
         {
             CodeResult result = MarkingCode.Normalize(packet.Raw);
-            if (!result.Ok) { if (MarkingCode.LooksLikeCode(packet.Raw)) Report(result.Message, true); return; }
-            // Do not load layouts or inject Caps Lock from the low-level keyboard callback.
-            Native.PrepareScannerKeyboard(packet.Window);
+            if (!result.Ok && (packet.DirectInput || !MarkingCode.LooksLikeCode(packet.Raw))) { if (MarkingCode.LooksLikeCode(packet.Raw)) Report(result.Message, true); return; }
             busy = true; busySince = Now;
             Task.Factory.StartNew(delegate
             {
@@ -340,15 +375,40 @@ namespace OzonMarkingDesktop
                     for (int attempt = 0; first == null && attempt < 4 && Ready(packet); attempt++)
                     { Thread.Sleep(100); first = FocusFrame.Read(packet.AllowOwnTest); }
                     if (first == null) { Report("Браузер не предоставил доступ к активному полю. Нажмите на поле маркировки и повторите сканирование.", true); return; }
-                    ReplacementPlan plan = ReplacementPlan.Create(first.Value, packet, result.Code, first.WholeValueOnly);
-                    if (plan == null || (!plan.ReplaceWhole && !first.CaretAtEnd)) { Report("Текст поля не совпадает со сканом. Код не заменён. Очистите поле и повторите сканирование.", true); return; }
+                    ReplacementPlan plan = ReplacementPlan.Resolve(first.Value, packet, first.WholeValueOnly);
+                    long settleUntil = Now + 600;
+                    while (plan == null && Ready(packet) && Now < settleUntil)
+                    {
+                        Thread.Sleep(60);
+                        FocusFrame settled = FocusFrame.ReadLike(first, packet.AllowOwnTest);
+                        if (settled == null || settled.Identity != first.Identity) break;
+                        first = settled;
+                        plan = ReplacementPlan.Resolve(first.Value, packet, first.WholeValueOnly);
+                    }
+                    if (plan == null && Ready(packet))
+                    {
+                        FocusFrame alternative = FocusFrame.Alternative(first, packet.AllowOwnTest);
+                        if (alternative != null)
+                        {
+                            ReplacementPlan alternativePlan = ReplacementPlan.Resolve(alternative.Value, packet, alternative.WholeValueOnly);
+                            if (alternativePlan != null) { first = alternative; plan = alternativePlan; }
+                        }
+                    }
+                    Action<string> diagnosis = Diagnosis;
+                    if (diagnosis != null) diagnosis(ScanDiagnosis.Describe(packet, first.Value, first.LegacyObject == null ? "UIA" : "MSAA", plan));
+                    if (plan == null || (!plan.ReplaceWhole && !first.CaretAtEnd)) { Report("Не удалось подтвердить текст поля. Причина записана на вкладке «Диагностика». Код не изменён.", true); return; }
                     FocusFrame second = FocusFrame.ReadLike(first, packet.AllowOwnTest);
                     if (second == null || second.Identity != first.Identity || second.Value != first.Value || (!plan.ReplaceWhole && !second.CaretAtEnd) || !Ready(packet)) { Report("Во время проверки изменился ввод. Повторите сканирование.", true); return; }
                     if (Native.Down(0x10) || Native.Down(0x11) || Native.Down(0x12) || Native.Down(0x5b) || Native.Down(0x5c)) { Report("Отпустите клавиши-модификаторы и повторите сканирование.", true); return; }
-                    bool sent = false;
-                    if (second.LegacyObject != null)
+                    bool sent = plan.Matches(second.Value);
+                    if (!sent && (second.WriteValue != null || second.LegacyObject != null))
                     {
-                        try { second.LegacyObject.set_accValue(second.LegacyChild, plan.Expected); sent = true; }
+                        try
+                        {
+                            if (second.WriteValue != null) second.WriteValue(plan.Expected);
+                            else second.LegacyObject.set_accValue(second.LegacyChild, plan.Expected);
+                            sent = true;
+                        }
                         catch
                         {
                             FocusFrame unchanged = FocusFrame.ReadLike(first, packet.AllowOwnTest);
@@ -377,7 +437,12 @@ namespace OzonMarkingDesktop
                         Report("Замена не подтверждена: браузер не сохранил разделители или фокус изменился. Проверьте поле и повторите сканирование.", true);
                         return;
                     }
-                    Action<string, bool> callback = Converted; if (!disposed && callback != null) callback(result.Code, packet.DirectInput);
+                    if (context != null) context.Post(delegate
+                    {
+                        if (!disposed && enabled && packet.Window == Native.GetForegroundWindow() && packet.Generation == Interlocked.Read(ref generation))
+                            Native.PrepareScannerKeyboard(packet.Window, keyboard.CapsLock);
+                    }, null);
+                    Action<string, bool> callback = Converted; if (!disposed && callback != null) callback(plan.Expected, packet.DirectInput);
                     Report("Разделители записаны и проверены в поле. Проверьте ответ Ozon. Подтверждение — вручную.", false);
                 }
                 catch { Report("Не удалось проверить активное поле. Код не изменён. Повторите сканирование.", true); }
@@ -393,6 +458,7 @@ namespace OzonMarkingDesktop
             disposed = true; enabled = false;
             if (timer != null) timer.Dispose();
             if (handle != IntPtr.Zero) { Native.UnhookWindowsHookEx(handle); handle = IntPtr.Zero; }
+            if (mouseHandle != IntPtr.Zero) { Native.UnhookWindowsHookEx(mouseHandle); mouseHandle = IntPtr.Zero; }
             buffer.Reset();
         }
     }

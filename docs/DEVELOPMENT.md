@@ -26,6 +26,14 @@ RU: Эти проверки не доказывают совместимость
 
 EN: These checks do not prove compatibility with the current Ozon field or a physical scanner. Installation tests do not validate browser behavior. SHA256 is not a Windows digital signature.
 
+RU: Для 1.2.3 пройдены 80 проверок ядра и 73 проверки функций, установка/удаление и настоящий тест Windows «Тест несовпадения»: видимый искусственный код с заглавными буквами сохранён при захваченном строчном варианте, оба разделителя записаны и перечитаны. В реальном Chrome/Ozon проверка не закончена: управление браузером остановилось на определении URL. Сам тестовый код не относится к товару.
+
+EN: For 1.2.3, 80 core and 73 feature assertions passed, along with installation/uninstallation and the real Windows mismatch test: an uppercase synthetic field value was preserved despite a lowercase captured representation, and both separators were written and read back. Live Chrome/Ozon verification remains incomplete because browser automation stopped at URL detection. The synthetic code does not identify a product.
+
+RU: --verify-scanner запускает отдельную диагностическую копию: физические клавиши обрабатываются только в разрешённом тестовом поле самой программы, COM не открывается, автозапуск и обновления отключены. Перед физическим тестом очистите поле. Используйте отдельную папку --settings-dir. Этот режим не заменяет проверку в Ozon.
+
+EN: --verify-scanner runs a separate diagnostic instance: physical keys are captured only in the application's permitted test field; COM, startup changes, and updates are disabled. Clear the field before a physical scan. Use a separate --settings-dir folder. This mode does not replace live Ozon validation.
+
 ## Browser fixture / Проверка браузера
 
 RU: Откройте tests/windows/browser-check.html в отдельной вкладке. В программе включите обработку, откройте «Проверка кода», нажмите «Тест в браузере» и за пять секунд перейдите в поле с искусственным примером. Ожидаются PASS / УСПЕХ и события input/change на странице. Этот пример не является кодом товара.
@@ -41,3 +49,7 @@ EN: --verify-browser starts an isolated verification instance without capturing 
 RU: Увеличивайте версию и пишите двуязычное описание. windows-updates.json относится только к Windows; updates.json — к расширению. Не заменяйте старые архивы и установщики.
 
 EN: Increase the version and write bilingual notes. windows-updates.json is for Windows only; updates.json is for the extension. Do not replace old archives or installers.
+
+RU: Проверочная 1.2.3 размещается в ветке windows-scanner-fix-1.2.3. Не копируйте сгенерированный outputs/publish/windows-updates.json в main до проверки реального товара. После подтверждения публикуйте тот же проверенный установщик и его SHA256 в общем канале.
+
+EN: Candidate 1.2.3 is hosted on windows-scanner-fix-1.2.3. Do not copy the generated outputs/publish/windows-updates.json into main before a real-item check. After validation, publish the same tested installer and its SHA256 to the shared channel.

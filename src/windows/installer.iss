@@ -1,5 +1,5 @@
-#define ProductName "Преобразователь кода для Ozon"
-#define ProductVersion "1.2.2"
+﻿#define ProductName "Преобразователь кода для Ozon"
+#define ProductVersion "1.2.9"
 #define ExeName "OzonMarkingConverter.exe"
 #ifdef TestMode
   #define DesktopRoot "{app}\_test_shortcuts\Desktop"
@@ -48,7 +48,7 @@ RestartApplications=no
 OutputDir=..\..\outputs
 Compression=lzma2
 SolidCompression=yes
-VersionInfoVersion=1.2.2.0
+VersionInfoVersion=1.2.9.0
 VersionInfoProductName={#ProductName}
 VersionInfoCompany=by PEI
 VersionInfoCopyright=by PEI

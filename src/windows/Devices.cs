@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Management;
@@ -15,15 +15,18 @@ namespace OzonMarkingDesktop
         [StructLayout(LayoutKind.Sequential)] private struct Registration { public ushort Page, Usage; public uint Flags; public IntPtr Window; }
         [StructLayout(LayoutKind.Sequential)] private struct DeviceEntry { public IntPtr Device; public uint Type; }
         [StructLayout(LayoutKind.Sequential)] private struct Header { public uint Type, Size; public IntPtr Device, Param; }
+        [StructLayout(LayoutKind.Sequential)] private struct Keyboard { public ushort MakeCode, Flags, Reserved, VKey; public uint Message, Extra; }
         [StructLayout(LayoutKind.Sequential)] private struct DeviceInterface { public int Size, Type, Reserved; public Guid Class; public ushort Name; }
         [DllImport("user32.dll", SetLastError = true)] private static extern bool RegisterRawInputDevices(Registration[] devices, uint count, uint size);
         [DllImport("user32.dll")] private static extern uint GetRawInputDeviceList([Out] DeviceEntry[] list, ref uint count, uint size);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern uint GetRawInputDeviceInfo(IntPtr device, uint command, StringBuilder data, ref uint size);
         [DllImport("user32.dll")] private static extern uint GetRawInputData(IntPtr input, uint command, IntPtr data, ref uint size, uint headerSize);
+        [DllImport("user32.dll")] private static extern int GetMessageTime();
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr RegisterDeviceNotification(IntPtr window, ref DeviceInterface filter, uint flags);
         [DllImport("user32.dll")] private static extern bool UnregisterDeviceNotification(IntPtr registration);
         private IntPtr serialNotifications, lastDevice;
         public event Action Changed;
+        public event Action<Native.KeyboardData, bool> Key;
         public string LastPath = "";
         public bool Available;
         public RawKeyboardWindow()
@@ -65,18 +68,40 @@ namespace OzonMarkingDesktop
             }
             if (message.Msg == 0xff)
             {
-                uint size = (uint)Marshal.SizeOf(typeof(Header));
-                IntPtr data = Marshal.AllocHGlobal((int)size);
-                try
+                uint headerSize = (uint)Marshal.SizeOf(typeof(Header));
+                uint size = 0;
+                // RU: RID_INPUT требует весь RAWINPUT; сначала запрашиваем размер.
+                // EN: RID_INPUT requires the complete RAWINPUT; query its size first.
+                if (GetRawInputData(message.LParam, 0x10000003, IntPtr.Zero, ref size, headerSize) != UInt32.MaxValue &&
+                    size >= headerSize + Marshal.SizeOf(typeof(Keyboard)) && size <= 65536)
                 {
-                    if (GetRawInputData(message.LParam, 0x10000005, data, ref size, size) != UInt32.MaxValue)
+                    IntPtr data = Marshal.AllocHGlobal((int)size);
+                    try
                     {
-                        Header header = (Header)Marshal.PtrToStructure(data, typeof(Header));
-                        if (header.Type == 1 && header.Device != IntPtr.Zero && header.Device != lastDevice)
-                        { lastDevice = header.Device; LastPath = PathOf(header.Device); }
+                        uint read = GetRawInputData(message.LParam, 0x10000003, data, ref size, headerSize);
+                        if (read != UInt32.MaxValue && read >= headerSize + Marshal.SizeOf(typeof(Keyboard)))
+                        {
+                            Header header = (Header)Marshal.PtrToStructure(data, typeof(Header));
+                            if (header.Type == 1 && header.Device != IntPtr.Zero && header.Size <= read)
+                            {
+                                if (header.Device != lastDevice) { lastDevice = header.Device; LastPath = PathOf(header.Device); }
+                                Keyboard keyboard = (Keyboard)Marshal.PtrToStructure(IntPtr.Add(data, (int)headerSize), typeof(Keyboard));
+                                if (keyboard.VKey != 255 && (keyboard.Message == 0x100 || keyboard.Message == 0x101 || keyboard.Message == 0x104 || keyboard.Message == 0x105))
+                                {
+                                    bool up = (keyboard.Flags & 1) != 0 || keyboard.Message == 0x101 || keyboard.Message == 0x105;
+                                    Native.KeyboardData key = new Native.KeyboardData
+                                    {
+                                        Key = keyboard.VKey, Scan = keyboard.MakeCode,
+                                        Flags = (keyboard.Flags & 2) != 0 ? 1u : 0u,
+                                        Time = unchecked((uint)GetMessageTime()), Extra = new UIntPtr(keyboard.Extra)
+                                    };
+                                    Action<Native.KeyboardData, bool> action = Key; if (action != null) action(key, up);
+                                }
+                            }
+                        }
                     }
+                    finally { Marshal.FreeHGlobal(data); }
                 }
-                finally { Marshal.FreeHGlobal(data); }
             }
             base.WndProc(ref message);
         }
@@ -108,6 +133,8 @@ namespace OzonMarkingDesktop
         {
             hook = scanner; rates = new Dictionary<string, int>(savedRates);
             raw = new RawKeyboardWindow(); raw.Changed += delegate { Refresh(); };
+            raw.Key += hook.RawKey;
+            hook.UseRawInput(raw.Available);
             timer = new System.Threading.Timer(Tick, null, 100, 500);
         }
         public void SetActive(bool value) { active = value; }
@@ -207,7 +234,7 @@ namespace OzonMarkingDesktop
         }
         public void Dispose()
         {
-            disposed = true; timer.Dispose(); raw.Dispose();
+            disposed = true; timer.Dispose(); hook.UseRawInput(false); raw.Key -= hook.RawKey; raw.Dispose();
             AutoSerialChannel[] closing;
             lock (gate) { closing = new List<AutoSerialChannel>(channels.Values).ToArray(); channels.Clear(); }
             Task.Factory.StartNew(delegate { foreach (AutoSerialChannel channel in closing) channel.Dispose(); });

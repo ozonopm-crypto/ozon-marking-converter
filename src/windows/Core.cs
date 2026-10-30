@@ -17,6 +17,7 @@ namespace OzonMarkingDesktop
         public const string Marker = @"\u001d";
         private const string Separator = @"(?:\x1d|\t| +|\\u001[dD]|\[GS\]|<GS>|\{GS\}|#GS#|#29F|#29)?";
         private static readonly Regex Complete = new Regex(@"\A01([0-9]{14})21([!-~]{13})" + Separator + @"91([!-~]{4})" + Separator + @"92([A-Za-z0-9+/]{43}=)\z", RegexOptions.CultureInvariant);
+        private static readonly Regex Captured = new Regex(@"\A01([0-9]{14})21([!-~]{13})" + Separator + @"91([!-~]{4})" + Separator + @"92([!-~]{44})\z", RegexOptions.CultureInvariant);
         private static readonly Regex Boundary = new Regex(@"\A01[0-9]{14}21[!-~]{13}(?:" + Separator + @"91[!-~]{4})?\z", RegexOptions.CultureInvariant);
         private static readonly Regex Start = new Regex(@"\A01[0-9]{14}21", RegexOptions.CultureInvariant);
         public static string Clean(string value)
@@ -37,6 +38,26 @@ namespace OzonMarkingDesktop
             return new CodeResult { Ok = true, Code = code, Changed = code != raw, Message = "Разделители подготовлены." };
         }
         public static bool CanInsertSeparator(string raw) { return Boundary.IsMatch(Clean(raw)); }
+        public static bool SamePhysicalPayload(string captured, string visible)
+        {
+            if (captured == null || visible == null) return false;
+            Match first = Captured.Match(Clean(captured)), second = Captured.Match(Clean(visible));
+            if (!first.Success || !second.Success || first.Groups[1].Value != second.Groups[1].Value) return false;
+            for (int group = 2; group <= 4; group++)
+            {
+                string a = first.Groups[group].Value, b = second.Groups[group].Value;
+                if (a.Length != b.Length) return false;
+                for (int i = 0; i < a.Length; i++)
+                    if (OrderedKeyboardState.PhysicalGlyph(a[i]) != OrderedKeyboardState.PhysicalGlyph(b[i])) return false;
+            }
+            return true;
+        }
+        public static bool SameProductFrame(string captured, string visible)
+        {
+            if (captured == null || visible == null) return false;
+            Match first = Captured.Match(Clean(captured)), second = Complete.Match(Clean(visible));
+            return first.Success && second.Success && first.Groups[1].Value == second.Groups[1].Value;
+        }
         public static bool LooksLikeCode(string raw) { return Start.IsMatch(Clean(raw)); }
         public static bool PossiblePrefix(string raw)
         {
@@ -66,12 +87,32 @@ namespace OzonMarkingDesktop
         public bool AllowOwnTest;
         public long Generation;
         public bool DirectInput;
+        public bool KeyboardNeedsRepair;
+        public string Origin = "USB/HID";
     }
 
     public sealed class ReplacementPlan
     {
         public string Expected;
         public bool ReplaceWhole;
+        public bool UsesField;
+        public static ReplacementPlan FromField(string field, ScanPacket packet)
+        {
+            if (packet == null || packet.DirectInput || packet.KeyboardNeedsRepair || field == null || !MarkingCode.LooksLikeCode(packet.Raw)) return null;
+            CodeResult visible = MarkingCode.Normalize(field);
+            if (!visible.Ok || !MarkingCode.SamePhysicalPayload(packet.Raw, field)) return null;
+            // RU: Источник — само проверенное поле. Ни один символ захваченной копии не записывается.
+            // EN: The verified field is authoritative; no character from the captured copy is written.
+            // Preserve every visible data character; only separators and a known AIM prefix change.
+            return new ReplacementPlan { Expected = visible.Code, ReplaceWhole = true, UsesField = true };
+        }
+        public static ReplacementPlan Resolve(string field, ScanPacket packet, bool wholeOnly)
+        {
+            ReplacementPlan visible = FromField(field, packet);
+            if (visible != null) return visible;
+            CodeResult captured = MarkingCode.Normalize(packet.Raw);
+            return captured.Ok ? Create(field, packet, captured.Code, wholeOnly) : null;
+        }
         public static ReplacementPlan Create(string field, ScanPacket packet, string prepared, bool wholeOnly)
         {
             if (packet == null || field == null) return null;
@@ -104,45 +145,84 @@ namespace OzonMarkingDesktop
         private IntPtr window;
         private bool ownTest;
         private bool terminated;
+        private bool keyboardNeedsRepair;
         private long suffixUntil;
         private IntPtr suffixWindow;
         public int GapMilliseconds = 220;
         public int IdleMilliseconds = 260;
+        public int MaximumCandidateLength;
+        public int LastResetLength;
+        public int LastRejectedPrefixLength;
+        public string LastResetReason = "";
+        public int EmittedPackets;
+        public int LastPacketLength;
         public bool HasCandidate { get { return raw.Length != 0; } }
         public string Candidate { get { return raw.ToString(); } }
-        public void Clear() { raw.Clear(); typed.Clear(); window = IntPtr.Zero; last = 0; terminated = false; }
-        public void Reset() { Clear(); suffixUntil = 0; suffixWindow = IntPtr.Zero; }
+        public void Clear(string reason = "reset")
+        {
+            // RU: Сохраняем причину потери непустого кадра, не содержимое кода.
+            // EN: Retain the loss reason for a nonempty frame, never its contents.
+            if (reason != "frame emitted" && raw.Length > 0 && raw.Length >= LastResetLength) { LastResetLength = raw.Length; LastResetReason = reason; }
+            raw.Clear(); typed.Clear(); window = IntPtr.Zero; last = 0; terminated = false; keyboardNeedsRepair = false;
+        }
+        public void Reset(string reason = "reset") { Clear(reason); suffixUntil = 0; suffixWindow = IntPtr.Zero; }
         public void Character(char value, long now, IntPtr foreground, bool allowOwnTest)
         {
             Character(value, value, now, foreground, allowOwnTest);
         }
         public void Character(char value, char actualTyped, long now, IntPtr foreground, bool allowOwnTest)
         {
-            if (window != foreground || (last != 0 && now - last > GapMilliseconds)) Clear();
-            if (value < ' ' || value > '~') { Clear(); return; }
+            Character(value, actualTyped, now, foreground, allowOwnTest, false);
+        }
+        public void Character(char value, char actualTyped, long now, IntPtr foreground, bool allowOwnTest, bool needsRepair)
+        {
+            if (window != foreground) Clear("window changed");
+            else if (last != 0 && now - last > GapMilliseconds) Clear("inter-key gap");
+            if (value < ' ' || value > '~') { Clear("non-printable character"); return; }
             string next = raw.ToString() + value;
             if (!MarkingCode.PossiblePrefix(next) || next.Length > 150)
             {
-                Clear();
+                if (raw.Length > 0) LastRejectedPrefixLength = next.Length;
+                Clear(next.Length > 150 ? "frame too long" : "prefix mismatch");
                 if (value != '0' && value != ']') return;
             }
             raw.Append(value); typed.Append(actualTyped);
+            if (raw.Length > MaximumCandidateLength) MaximumCandidateLength = raw.Length;
+            keyboardNeedsRepair |= needsRepair;
             window = foreground; ownTest = allowOwnTest; last = now;
         }
         public bool Control(string key, long now, IntPtr foreground)
         {
             if (foreground == suffixWindow && now < suffixUntil && (key == "Enter" || key == "Tab" || key == "F8")) return true;
-            if (raw.Length == 0 || foreground != window || now - last > GapMilliseconds) { Clear(); return false; }
+            if (raw.Length == 0 || foreground != window || now - last > GapMilliseconds)
+            { Clear(foreground != window ? "window changed" : "inter-key gap"); return false; }
             string value = raw.ToString();
             if ((key == "Tab" || key == "F8" || key == "GS") && MarkingCode.CanInsertSeparator(value))
             {
-                raw.Append('\x1d'); last = now; return true;
+                raw.Append('\x1d'); if (raw.Length > MaximumCandidateLength) MaximumCandidateLength = raw.Length; last = now; return true;
             }
             if ((key == "Enter" || key == "Tab") && MarkingCode.LooksLikeCode(value))
             {
                 last = now; terminated = true; return true;
             }
-            Clear(); return false;
+            string safeControl = key == "Enter" || key == "Tab" || key == "F8" || key == "GS" ? key : "other";
+            Clear("control " + safeControl); return false;
+        }
+        public bool ShouldSuppressControl(string key, long now, IntPtr foreground)
+        {
+            if (foreground == suffixWindow && now < suffixUntil && (key == "Enter" || key == "Tab" || key == "F8")) return true;
+            if (raw.Length == 0 || foreground != window || now - last > GapMilliseconds) return false;
+            string value = raw.ToString();
+            return ((key == "Tab" || key == "F8" || key == "GS") && MarkingCode.CanInsertSeparator(value)) ||
+                ((key == "Enter" || key == "Tab") && MarkingCode.LooksLikeCode(value));
+        }
+        // RU: Продлеваем только существующий кадр во время известной последовательности GS.
+        // EN: Extend an existing frame only while receiving a recognized GS key sequence.
+        public bool KeepAlive(long now, IntPtr foreground)
+        {
+            if (raw.Length == 0 || foreground != window || now - last > GapMilliseconds)
+            { Clear(foreground != window ? "window changed" : "inter-key gap"); return false; }
+            last = now; return true;
         }
         public ScanPacket Poll(long now, long generation)
         {
@@ -150,8 +230,10 @@ namespace OzonMarkingDesktop
             bool complete = raw.Length >= 83 && raw[raw.Length - 1] == '=' && MarkingCode.Normalize(raw.ToString()).Ok;
             int wait = terminated || complete ? 35 : IdleMilliseconds;
             if (now - last < wait) return null;
-            ScanPacket packet = new ScanPacket { Raw = raw.ToString(), Typed = typed.ToString(), Window = window, AllowOwnTest = ownTest, Generation = generation };
-            Clear();
+            ScanPacket packet = new ScanPacket { Raw = raw.ToString(), Typed = typed.ToString(), Window = window, AllowOwnTest = ownTest, Generation = generation, KeyboardNeedsRepair = keyboardNeedsRepair };
+            int packetLength = raw.Length;
+            Clear("frame emitted");
+            EmittedPackets++; LastPacketLength = packetLength;
             if (MarkingCode.LooksLikeCode(packet.Raw))
             {
                 suffixUntil = now + 180; suffixWindow = packet.Window;

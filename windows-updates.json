@@ -1,7 +1,7 @@
 {
-  "version": "1.2.2",
-  "url": "https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.2.exe",
-  "sha256": "4ce09a6fb449b8aea19d232b9b0242cc9be7f91b3d9d1dc4db522a86a08c56ac",
-  "size": 2127909,
-  "notes": "RU: Уменьшены задержки скана, убран постоянный перебор COM без данных, раскладка переключается после скана. Исправлена проверка полного кода без зависимости от курсора. Требуется проверка на рабочем месте.\nEN: Reduced scan delays, stopped idle COM probing, moved layout preparation after scanning, and removed caret dependency for exact full-code replacement. Workplace validation is required."
+  "version": "1.2.9",
+  "url": "https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.9.exe",
+  "sha256": "6702965ccae62573ca92a2f37bc17c1de2bc2e79b9111ad00fb413ba0c56dde7",
+  "size": 2141425,
+  "notes": "RU: Исправлен обрыв скана АТОЛ на разделителях Alt+029. Полный USB/HID-скан, автоматическая замена в браузере и принятие кода Ozon подтверждены на компьютере владельца. Сохранены трей, автозапуск и настройки. by PEI.\nEN: Fixed ATOL scan truncation at Alt+029 separators. Complete USB/HID capture, automatic browser replacement and Ozon code acceptance are confirmed on the owner's computer. Tray, startup and preferences are preserved. by PEI."
 }

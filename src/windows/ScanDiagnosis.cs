@@ -1,0 +1,34 @@
+using System;
+using System.Text;
+
+namespace OzonMarkingDesktop
+{
+    public static class ScanDiagnosis
+    {
+        public static string Describe(ScanPacket packet, string field, string reader, ReplacementPlan plan, string reads = null)
+        {
+            StringBuilder text = new StringBuilder();
+            text.AppendLine("by PEI · RU / EN");
+            text.AppendLine("Версия / Version: " + typeof(ScanDiagnosis).Assembly.GetName().Version);
+            text.AppendLine("Источник ввода / Input origin: " + packet.Origin);
+            text.AppendLine("Чтение / Reader: " + reader);
+            text.AppendLine("Клавиши / Captured: " + (packet.Raw ?? "").Length);
+            text.AppendLine("Напечатано / Typed: " + (packet.Typed ?? "").Length);
+            CodeResult capturedFormat = MarkingCode.Normalize(packet.Raw);
+            text.AppendLine("Формат захваченного / Captured format: " + capturedFormat.Ok + "; " + capturedFormat.Message);
+            text.AppendLine("Поле / Field: " + (field == null ? "недоступно / unavailable" : field.Length.ToString()));
+            text.AppendLine("Коррекция языка / Keyboard repair: " + packet.KeyboardNeedsRepair);
+            text.AppendLine("Совпадение текста / Exact typed match: " + (field == packet.Typed));
+            text.AppendLine("Совпадение клавиш / Physical-key correlation: " + MarkingCode.SamePhysicalPayload(packet.Raw, field));
+            text.AppendLine("Формат поля / Field format: " + MarkingCode.Normalize(field).Ok);
+            text.AppendLine("Источник / Source: " + (plan == null ? "отказ / rejected" : plan.UsesField ? "текст поля / visible field" : "клавиши / key events"));
+            if (!String.IsNullOrEmpty(reads))
+            {
+                text.AppendLine("Чтения поля / Field reads:");
+                text.Append(reads);
+            }
+            text.AppendLine("Сам код и символы кода не включены. / No code contents are included.");
+            return text.ToString();
+        }
+    }
+}

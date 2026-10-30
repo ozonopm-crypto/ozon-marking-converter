@@ -1,12 +1,22 @@
 MARKING CODE CONVERTER FOR OZON / ПРЕОБРАЗОВАТЕЛЬ КОДА ДЛЯ OZON — WINDOWS
 by PEI
 
-RU: Сборка 1.2.2 требует проверки на рабочем месте. Убраны лишние
-опросы и задержки; точный полный код не зависит от проверки курсора.
-Сквозной тест в браузере в среде разработки не подтверждён.
-EN: Version 1.2.2 requires workplace validation. Excess polling and delays
-were removed; exact full-code matches do not depend on caret reporting.
-End-to-end browser verification is unconfirmed.
+RU: Локальная проверочная версия 1.2.9. Основное чтение использует прямой
+Windows COM UIA. Корректный код в проверенном поле нормализуется с
+сохранением всех символов серийного номера, ключа и проверочной части.
+USB/HID принимается через Windows Raw Input. Сопоставляются полный
+кадр скана и все символы кода. Это подготовка разделителей введённого кода,
+а не подтверждение соответствия кода физическому экземпляру товара.
+Пройдены 607 автоматических проверок логики. Реальный Ozon требует проверки.
+Общий канал обновлений остаётся на 1.2.2 до проверки реального товара.
+EN: Local candidate 1.2.9 uses direct Windows COM UIA. Normalize a valid
+verified field without importing captured serial, key, or signature
+characters. Require a complete captured frame and matching payload. USB/HID uses Windows Raw Input. This
+prepares separators in the existing field; it does not verify that the
+field identifies the physical item just scanned. Passed 607 logic assertions.
+Physical scanner and live Ozon
+validation remain required. The shared feed remains on 1.2.2
+until a real item has been validated.
 
 УСТАНОВКА
 Запустите установщик. Будут созданы ярлыки на рабочем столе и в меню
@@ -39,13 +49,13 @@ COM: после некорректных входящих данных пров�
 пока подбирается скорость. После корректного кода скорость запоминается.
 Сканируйте по одному товару и ждите результата в поле.
 
-Для USB после получения полного поддерживаемого кода запрашивается
+Для USB после подтверждённой записи поддерживаемого кода запрашивается
 английская раскладка ENG и выключается Caps Lock. Во время самого скана
 раскладка не переключается. Данные сканера
 разбираются по английской раскладке независимо от языка Windows.
 Уже набранные символы проверяются перед заменой. Обычный ввод текста,
 не похожий на начало маркировки, не переключает язык.
-COM передаёт данные независимо от раскладки; при обработке также
+COM передаёт данные независимо от раскладки; после записи также
 запрашивается ENG и выключается Caps Lock.
 
 Bluetooth поддерживается через USB-базу или после сопряжения в Windows
@@ -74,6 +84,12 @@ https://github.com/ozonopm-crypto/ozon-marking-converter
 
 ПРОВЕРКА И ОГРАНИЧЕНИЯ
 На вкладке «Проверка кода» есть искусственный пример и тест автозамены.
+«Тест несовпадения» проверяет сохранение символов поля при несовпадении
+регистра захваченного текста. На вкладке «Диагностика» показываются
+длины и результаты сравнения. Сам код в отчёт не включён; отчёт остаётся
+только в памяти до следующей проверки или закрытия программы.
+Отдельно указаны длины ValuePattern/TextPattern и причины отказа
+резервных способов чтения. Имена полей и координаты в отчёт не включены.
 Перед массовым использованием проверьте один реальный товар в Ozon.
 Физический АТОЛ SB3100 BT и работу на складе нужно проверить на месте.
 
@@ -86,10 +102,16 @@ https://github.com/ozonopm-crypto/ozon-marking-converter
 Поддерживаются доступные для чтения активные текстовые поля Яндекс
 Браузера, Chrome, Edge и Opera. Адрес сайта не проверяется — выбирайте
 поле маркировки. Браузер должен работать без повышения прав.
-COM вставляет код только в пустое поле. Для USB проверяется точное
-совпадение полного кода или считанного суффикса. Положение курсора
+COM вставляет код только в пустое поле. Для USB проверяется полный
+формат кода в активном поле. При ENG и выключенном Caps Lock текст
+поля может быть источником при полном совпадении с физическими клавишами скана.
+Все символы и регистр поля сохраняются; меняются разделители.
+Также поддерживается точное совпадение считанного суффикса. Положение курсора
 учитывается только при замене суффикса, если в поле есть другой префикс.
-Через MSAA весь текст поля должен совпадать со считанным кодом.
+Через MSAA выполняется только проверенная замена поля целиком.
+Пустой ValuePattern не считается доказательством пустого поля, если
+TextPattern содержит текст. Противоречивые непустые представления
+отклоняются; способ чтения сохраняется до проверки записи.
 После записи результат перечитывается и проверяется.
 Если Windows не позволяет проверить поле, программа отказывается
 от изменения. При смене поля или вводе другого текста повторите скан.
@@ -130,7 +152,7 @@ data. An unidentified COM scanner may need its vendor driver. Initial detection 
 scans. Successful parameters are remembered. Scan one item at a time.
 
 The application requests English input and switches Caps Lock off after
-a complete supported scan. The layout is not changed mid-scan.
+a supported code has been written and verified. The layout is not changed mid-scan.
 Scanner keys are decoded using the
 English layout; the actual typed suffix is checked before replacing it.
 Ordinary text does not switch the layout. COM data does not depend on it.
@@ -157,6 +179,12 @@ VERIFICATION AND LIMITS
 The code-check tab provides a synthetic example and a Windows replacement
 test. The browser-test button applies only to the synthetic example;
 see tests/windows/browser-check.html in the source repository.
+The mismatch test checks preservation of field characters when captured
+letter case differs. Diagnostics shows lengths and comparison results
+without code contents. Its report exists only in memory until the next
+check or application exit.
+It also shows ValuePattern/TextPattern lengths and fallback-reader
+rejection reasons without field names or coordinates.
 Test one real item before warehouse-wide use. Physical ATOL SB3100 BT
 and the live Ozon field require validation at the workplace.
 
@@ -168,10 +196,16 @@ is neither read nor changed.
 
 Yandex Browser, Chrome, Edge and Opera must run without elevation.
 The focused text field must expose its value through Windows accessibility.
-The website URL is not checked. COM requires an empty field. USB requires
-a matching whole code or typed suffix. Caret position is required only
-for suffix replacement with a separate prefix. With MSAA, the whole
-existing value must match the scan, allowing a whole-field replacement.
+The website URL is not checked. COM requires an empty field. USB checks
+the full code format. With English input and Caps Lock off,
+a valid field value may be used with a complete captured frame and
+matching physical payload. All payload characters and their case are preserved.
+Exact typed-suffix matching is also supported. Caret position is required only
+for suffix replacement with a separate prefix. MSAA supports only
+verified whole-field replacements.
+An empty ValuePattern is not treated as an empty field when TextPattern
+contains text. Conflicting nonempty representations reject replacement;
+readback stays on the selected reader.
 The result is read back after writing. Inaccessible fields, focus changes,
 and unverified values produce a failure message. A successful field write
 does not mean Ozon accepted the code. Check the field before rescanning.
@@ -182,3 +216,12 @@ Program files, shortcuts, and its startup entry are removed. Preferences
 in %LOCALAPPDATA%\OzonMarkingConverter remain for reinstallation.
 
 by PEI
+
+RU: Для обычного сканирования кнопки теста не нужны. На вкладке «Диагностика» счётчики RAW/LL показывают физические события, а искусственные примеры помечены TEST.
+EN: Ordinary scanning needs no test buttons. Diagnostics RAW/LL counters show physical events; synthetic examples are labeled TEST.
+
+RU: Состояние Shift/Ctrl обновляется вне обработчика при выборе поля и во время простоя. Диагностика показывает максимальную длину кадра и причину сброса без содержимого кода.
+EN: Refresh modifier state outside the callback when selecting a field and while idle. Diagnostics shows maximum frame length and reset reasons without code contents.
+
+RU: Разделитель GS поддерживается как Alt+29/Alt+029 только на проверенных границах кода. Поддерживается выключенный Num Lock. Смена окна, неверный Alt-код или превышение времени отменяют кадр. В браузере запись выполняется через события клавиатуры Windows, чтобы форма получила события ввода; UIA используется для чтения и проверки результата.
+EN: GS is accepted as Alt+29/Alt+029 only at verified code boundaries, including with Num Lock off. A changed window, invalid Alt code, or timeout cancels the frame. Browser replacement uses Windows keyboard events so controlled forms receive input events; UIA reads and verifies the result.

@@ -6,13 +6,25 @@ RU: Программа Windows и отдельное расширение бра
 
 EN: A Windows application and a separate browser extension that prepare separators in long Chestny ZNAK marking codes for Ozon Seller. Ozon validates the code and its status. Missing characters are not reconstructed, and letter case is not guessed.
 
-## Windows 1.2.2 — validation build / сборка для проверки
+## Windows 1.2.9 — October 30, 2026 / 30 октября 2026
 
-[Download Windows installer / Скачать установщик Windows](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.2.exe)
+RU: **Обычное сканирование USB/HID-сканером, автоматическая замена и принятие кода Ozon подтверждены владельцем в Chrome 30 октября 2026 года.** Выпуск 1.2.9 доступен через установщик и общий канал main/windows-updates.json. Для выпуска используется тот же установщик, который прошёл эту проверку. Повторная проверка на складе и в Яндекс Браузере ещё не проводилась.
 
-RU: В 1.2.2 убраны переключение раскладки из обработчика клавиш, постоянный перебор скорости на пустом COM-порту и частый опрос устройств. Полный код передаётся в обработку после короткого ожидания отпускания клавиши; точное совпадение всего кода в поле больше не требует проверки курсора. **Проверка на физическом сканере и в рабочем Ozon всё ещё требуется. Управление браузером в среде разработки остановлено из-за невозможности надёжно определить URL; сквозной тест не подтверждён.**
+EN: **The owner confirmed ordinary USB/HID scanning, automatic replacement, and Ozon acceptance in Chrome on October 30, 2026.** Release 1.2.9 is available through the installer and the shared main/windows-updates.json feed. The release uses the same installer that passed this validation. Warehouse and Yandex Browser revalidation have not yet been performed.
 
-EN: Version 1.2.2 moves layout changes out of the keyboard callback, stops idle COM baud cycling, and reduces device polling. Complete scans are processed after a short key-release delay; an exact whole-code match no longer depends on caret reporting. **Physical scanner and live Ozon validation are still required. Browser automation was stopped because the URL could not be determined reliably; end-to-end verification remains unconfirmed.**
+RU: Исправлен обрыв скана на служебном разделителе Alt+NumPad29. Программа получает физический ввод через Raw Input, сохраняет полный кадр и проверяет соответствие всего кода активному полю. Диагностика различает настоящий USB/HID-ввод и искусственные тесты, не сохраняя содержимое кодов.
+
+EN: Fixed scan loss at the Alt+NumPad29 separator. The application receives physical input through Raw Input, preserves the complete frame, and verifies the entire code against the focused field. Diagnostics distinguishes real USB/HID input from synthetic tests without retaining code contents.
+
+RU: Запись в браузере выполняется клавиатурными событиями Windows после проверки активного поля, его текста и отсутствия нового ввода. Это позволяет управляемой веб-форме Ozon получать события ввода. Native COM UIA используется для чтения и проверки результата. Раскладка и Caps Lock учитываются при восстановлении кода по физическим клавишам; фактическое состояние индикаторов языка и Caps Lock после записи отдельно не подтверждалось.
+
+EN: Browser writes use Windows keyboard events after verifying the focused field, its text, and the absence of new input. This allows Ozon's controlled web form to receive input events. Native COM UIA reads and verifies the result. Input language and Caps Lock are accounted for when reconstructing the code from physical keys; the actual language and Caps Lock indicators after writing were not separately confirmed.
+
+RU: **Пройдены 607 автоматических проверок и проверка установки/удаления версии 1.2.9.** Физическая проверка подтвердила два полных пакета по 85 символов, распознанные Alt+29, точное совпадение исходного поля с предсказанным вводом и корректный формат после записи. Пользователь отдельно подтвердил: «Код озон принял, автозамена работает».
+
+EN: **Passed 607 automated assertions and version 1.2.9 installation/uninstallation checks.** Physical validation confirmed two complete 85-character packets, recognized Alt+29 sequences, an exact initial-field/predicted-input match, and a valid format after writing. The user separately confirmed that Ozon accepted the code and automatic replacement works.
+
+[Download Windows 1.2.9 / Скачать Windows 1.2.9](https://raw.githubusercontent.com/ozonopm-crypto/ozon-marking-converter/main/downloads/OzonMarkingConverter-Setup-1.2.9.exe)
 
 ### Installation and use / Установка и работа
 
@@ -20,9 +32,9 @@ RU: Windows 10/11 x64, .NET Framework 4.8. Установщик создаёт �
 
 EN: Requires Windows 10/11 x64 and .NET Framework 4.8. The installer creates Desktop and Start menu shortcuts. Startup at Windows sign-in is selected by default, and processing starts enabled on a fresh installation. Closing the window hides the application in the tray. Use Exit to stop it completely. Updating preserves preferences.
 
-RU: Отключите прежнее расширение преобразователя. Подключите сканер, очистите поле маркировки Ozon, нажмите на него и отсканируйте один товар. Проверьте ответ Ozon; товар подтверждает сотрудник.
+RU: Отключите прежнее расширение преобразователя. Подключите сканер, очистите поле маркировки Ozon, нажмите на него и отсканируйте один товар. **Для обычного сканирования кнопки теста не нужны.** Проверьте ответ Ozon; товар подтверждает сотрудник.
 
-EN: Disable the previous converter extension. Connect the scanner, clear and focus Ozon's marking-code field, and scan one item. Check Ozon's response; an employee confirms the item manually.
+EN: Disable the previous converter extension. Connect the scanner, clear and focus Ozon's marking-code field, and scan one item. **Ordinary scanning requires no test buttons.** Check Ozon's response; an employee confirms the item manually.
 
 ### Automatic connection / Автоматическое подключение
 
@@ -30,9 +42,9 @@ RU: USB/HID обнаруживается автоматически. COM отк�
 
 EN: USB/HID is detected automatically. A COM port is opened only for a scanner-named or previously confirmed device identity. Other ports remain unopened. Baud changes occur only after invalid incoming data; idle ports do not cycle. Supported rates are between 1200 and 115200 baud, using 8N1 without flow control. An unidentified COM device may require its vendor driver.
 
-RU: После получения полного поддерживаемого кода запрашивается ENG и выключается Caps Lock. Во время скана раскладка не переключается; клавиши разбираются по английской раскладке. Bluetooth поддерживается через базу либо как уже сопряжённая в Windows клавиатура / COM. Драйверы, закрытые протоколы и сопряжение требуют средств производителя / Windows.
+RU: После подтверждённой записи поддерживаемого кода запрашивается ENG и выключается Caps Lock. Во время скана раскладка не переключается; клавиши разбираются по английской раскладке. Bluetooth поддерживается через базу либо как уже сопряжённая в Windows клавиатура / COM. Драйверы, закрытые протоколы и сопряжение требуют средств производителя / Windows.
 
-EN: After a complete supported scan is received, the application requests English input and switches Caps Lock off. The layout is not switched mid-scan; scanner keys are decoded using English. Bluetooth works through a base or an already paired Windows keyboard/COM interface. Proprietary protocols, drivers, and pairing require vendor/Windows tools.
+EN: After a supported code has been written and verified, the application requests English input and switches Caps Lock off. The layout is not switched mid-scan; scanner keys are decoded using English. Bluetooth works through a base or an already paired Windows keyboard/COM interface. Proprietary protocols, drivers, and pairing require vendor/Windows tools.
 
 ### Updates / Обновления
 
@@ -62,8 +74,8 @@ RU: Поддерживается длинный формат: GTIN 14 цифр, 
 
 EN: The supported long format contains a 14-digit GTIN, a 13-character serial number, a four-character key, and a 44-character verification block ending in '='. Unsupported formats are not repaired. Codes are processed locally, are not logged, and are not sent to GitHub. GitHub is used only for version checks and update downloads.
 
-RU: Программа изменяет только проверенное активное поле поддерживаемого браузера. COM заполняет только пустое поле. При доступе через MSAA уже введённый текст должен полностью совпадать со сканом. Если поле недоступно, фокус изменился или результат не подтверждён, программа сообщает об отказе. Успех записи не означает, что Ozon принял код.
+RU: Программа изменяет только проверенное активное поле поддерживаемого браузера. COM заполняет только пустое поле. Для USB проверяется весь код, а не только GTIN. В ENG с выключенным Caps Lock корректный текст поля может быть источником при полном соответствии физическим клавишам скана; его регистр сохраняется. Через MSAA заменяется только поле целиком. Если поле недоступно, фокус изменился или результат не подтверждён, программа сообщает об отказе. Успех записи не означает, что Ozon принял код.
 
-EN: The application changes only a verified focused field in a supported browser. COM input requires an empty field. With MSAA, the entire existing value must match the scan. Unavailable fields, focus changes, and unverified results produce a failure message. A successful field write does not mean Ozon accepted the code.
+EN: The application changes only a verified focused field in a supported browser. COM input requires an empty field. USB correlation covers the entire payload, not just the GTIN. With English input and Caps Lock off, a valid field value may be used when every payload character corresponds to the same physical scanner key; its case is preserved. MSAA supports only whole-field replacement. Unavailable fields, focus changes, and unverified results produce a failure message. A successful field write does not mean Ozon accepted the code.
 
 [Development and verification / Разработка и проверки](docs/DEVELOPMENT.md) · [Changelog / История изменений](CHANGELOG.md)

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PEI Native Browser Verification</title>
+<style>
+  *{box-sizing:border-box}body{font:16px/1.45 system-ui,sans-serif;max-width:1100px;margin:28px auto;padding:0 20px;color:#14223a;background:#f5f7fb}
+  h1{font-size:26px;margin-bottom:8px}h2{font-size:19px;margin:0 0 12px}p{margin:8px 0 16px}
+  section{background:white;border:1px solid #dce3ed;border-radius:10px;padding:18px;margin:16px 0}label{display:block;font-weight:600}
+  input{display:block;width:100%;margin:7px 0 12px;padding:12px;border:1px solid #aab9cf;border-radius:5px;font:14px Consolas,monospace}
+  button{padding:9px 12px;margin:0 7px 8px 0;border:1px solid #9daec5;border-radius:5px;background:#f2f6fc;color:#14223a;cursor:pointer}
+  output{display:block;padding:10px;background:#eef3fa;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 Consolas,monospace}
+  .pass{color:#10652d}.wait{color:#805100}.fail{color:#a62222}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:#4a5b73}
+  details{margin-top:10px}pre{margin:8px 0;white-space:pre-wrap;font:12px/1.5 Consolas,monospace;max-height:170px;overflow:auto}
+  @media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style>
+<h1>Проверка ввода Windows в браузер / Windows browser input verification · by PEI</h1>
+<p>Только искусственный пример. Товаров, заказов, сети и внешних библиотек нет. / Synthetic data only. No products, orders, network requests, or external libraries.</p>
+<p class="small">В программе: «Проверка кода» → «Тест в браузере», затем выберите подготовленное поле. Успех модели требует события input/change, а не только изменения текста. / In the app: Code check → Browser test, then focus a prepared field. Model success requires an input/change event, not just a DOM value change.</p>
+
+<section id="vanilla-card">
+  <h2>1. Обычное поле / Vanilla input</h2>
+  <label for="vanilla">Искусственный код PEI / PEI synthetic code</label>
+  <input id="vanilla" aria-label="PEI synthetic marking code — vanilla" autocomplete="off" spellcheck="false">
+  <button type="button" id="reset-vanilla">Сбросить и выбрать / Reset and focus</button>
+  <output id="vanilla-status"></output>
+  <details><summary>События / Events</summary><pre id="vanilla-events"></pre></details>
+</section>
+
+<section id="controlled-card">
+  <h2>2. Поле с моделью состояния / Controlled-model simulation</h2>
+  <label for="controlled">Искусственный код PEI с моделью / PEI synthetic code with model</label>
+  <input id="controlled" aria-label="PEI synthetic marking code — controlled model" autocomplete="off" spellcheck="false">
+  <button type="button" id="reset-controlled">Сбросить и выбрать / Reset and focus</button>
+  <button type="button" id="render-controlled">Перерисовать из модели / Render from model</button>
+  <output id="controlled-status"></output>
+  <details><summary>События / Events</summary><pre id="controlled-events"></pre></details>
+  <p class="small">Модель обновляется только по input/change. При потере фокуса поле восстанавливается из модели. Это имитация управляемого поля, без React. / The model changes only on input/change. Blur restores the field from the model. This simulates controlled input behavior without React.</p>
+</section>
+
+<section>
+  <h2>3. Защищённые цели: программа должна отказать / Guarded targets: the app must refuse</h2>
+  <div class="grid">
+    <label for="readonly">Только чтение / Read-only<input id="readonly" aria-label="PEI read-only marking fixture" readonly></label>
+    <label for="password">Искусственное парольное поле / Synthetic password input<input id="password" type="password" aria-label="PEI synthetic password fixture" value="PEI-NOT-A-PASSWORD" autocomplete="off"></label>
+  </div>
+  <p class="small">В этих двух полях не должно быть автоматической замены. Пароль выше — искусственный тест, не учётные данные. / Neither field should be replaced automatically. The password value above is synthetic test data, not credentials.</p>
+</section>
+
+<script>
+// RU: Формат совпадает с MarkingCode.DemoRaw; это не код реального товара.
+// EN: Matches MarkingCode.DemoRaw and does not identify a real product.
+const raw = "010474334896754821TEST12345678991TEST92" + "A".repeat(43) + "=";
+const marker = String.raw`\u001d`;
+const expected = raw.slice(0, 31) + marker + raw.slice(31, 37) + marker + raw.slice(37);
+const decodedExpected = expected.replaceAll(marker, "\x1d");
+const matches = value => value === expected || value === decodedExpected;
+const fixtures = new Map();
+
+function configure(id, controlled) {
+  const input = document.getElementById(id);
+  const fixture = { input, controlled, model: raw, counts: { beforeinput: 0, input: 0, change: 0 }, log: [] };
+  fixtures.set(id, fixture);
+  function show() {
+    const domOk = matches(input.value), modelOk = matches(fixture.model);
+    const modelEvent = fixture.counts.input + fixture.counts.change > 0;
+    const passed = controlled ? domOk && modelOk && modelEvent : domOk;
+    const silent = controlled && domOk && (!modelOk || !modelEvent);
+    const status = document.getElementById(id + "-status");
+    status.className = passed ? "pass" : silent ? "fail" : "wait";
+    status.textContent = (passed ? "PASS / УСПЕХ" : silent ? "FAIL: DOM без модели / DOM changed without model" : "WAIT / ОЖИДАНИЕ") +
+      "\nDOM: " + (domOk ? "PASS" : "WAIT") + (controlled ? "; model: " + (modelOk ? "PASS" : "WAIT") : "; model: n/a") +
+      "\nbeforeinput: " + fixture.counts.beforeinput + "; input: " + fixture.counts.input + "; change: " + fixture.counts.change +
+      "\nDOM value: " + JSON.stringify(input.value) + (controlled ? "\nModel value: " + JSON.stringify(fixture.model) : "");
+    document.getElementById(id + "-events").textContent = fixture.log.join("\n") || "Нет событий / No events";
+  }
+  fixture.show = show;
+  for (const type of ["beforeinput", "input", "change"]) input.addEventListener(type, event => {
+    fixture.counts[type]++;
+    if (controlled && (type === "input" || type === "change")) fixture.model = input.value;
+    fixture.log.push(type + "; inputType=" + (event.inputType || "-") + "; length=" + input.value.length + "; trusted=" + event.isTrusted);
+    fixture.log = fixture.log.slice(-18);
+    show();
+  });
+  // RU: Без событий простое изменение .value не сохраняется в модели.
+  // EN: A silent .value change is not persisted in the controlled model.
+  if (controlled) input.addEventListener("blur", () => { input.value = fixture.model; show(); });
+  document.getElementById("reset-" + id).addEventListener("click", () => {
+    fixture.model = raw; input.value = raw;
+    fixture.counts = { beforeinput: 0, input: 0, change: 0 }; fixture.log = [];
+    show(); input.focus(); input.setSelectionRange(raw.length, raw.length);
+  });
+  input.value = raw; show();
+}
+configure("vanilla", false);
+configure("controlled", true);
+document.getElementById("readonly").value = raw;
+document.getElementById("render-controlled").addEventListener("click", () => {
+  const fixture = fixtures.get("controlled");
+  fixture.input.value = fixture.model; fixture.show(); fixture.input.focus();
+});
+// RU: Наблюдаем молчаливые изменения внешним средством без подмены событий.
+// EN: Observe silent external writes without manufacturing browser input events.
+setInterval(() => { for (const fixture of fixtures.values()) fixture.show(); }, 150);
+</script>
+</html>
